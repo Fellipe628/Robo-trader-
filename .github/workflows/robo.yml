@@ -1,0 +1,43 @@
+name: Robo Trader
+
+on:
+  schedule:
+    - cron: '0 3,6 * * *'
+    - cron: '0 9,10 * * *'
+    - cron: '0,30 11,12 * * *'
+    - cron: '*/15 13-19 * * *'
+    - cron: '0 20-23 * * *'
+    - cron: '0 0-1 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  robo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: Rodar robô
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python robo.py
+
+      - name: Salvar dados atualizados
+        run: |
+          git config user.name "robo-trader-bot"
+          git config user.email "bot@robo-trader.local"
+          git add -A
+          git commit -m "🤖 Atualiza dados [skip ci]" || echo "Sem mudanças"
+          git push
