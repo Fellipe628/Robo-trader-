@@ -1,4 +1,131 @@
+# ==========================================
+# ROBÔ TRADER — Versão GitHub Actions (sem LSTM)
+# ==========================================
+import os
+import time
+import requests
+import pandas as pd
+import json
+from datetime import datetime
 
+# --- Configurações gerais ---
+PASTA         = "."
+ARQUIVO       = f"{PASTA}/portfolio.csv"
+ARQUIVO_LOG   = f"{PASTA}/historico_sinais.csv"
+
+# --- Telegram ---
+TELEGRAM_TOKEN   = os.environ.get("TELEGRAM_TOKEN")
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
+_tg_ok = bool(TELEGRAM_TOKEN and TELEGRAM_CHAT_ID)
+
+# --- Watchlists ---
+CRIPTO_WATCHLIST = ["BTC", "ETH", "SOL", "BNB", "ADA"]
+ACOES_WATCHLIST = {
+    "PETR4":  "PETR4.SA",
+    "VALE3":  "VALE3.SA",
+    "ITUB4":  "ITUB4.SA",
+    "BBAS3":  "BBAS3.SA",
+    "WEGE3":  "WEGE3.SA",
+}
+
+CRIPTO_YF = {
+    "BTC": "BTC-USD",
+    "ETH": "ETH-USD",
+    "SOL": "SOL-USD",
+    "BNB": "BNB-USD",
+    "ADA": "ADA-USD",
+}
+
+VALOR_POR_TRADE = 1000
+MULT_ALVO       = 3.0
+MULT_STOP       = 1.5
+
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/json",
+}
+
+
+# ==========================================
+# PORTFÓLIO
+# ==========================================
+def _df_vazio():
+    return pd.DataFrame({
+        "ID":           pd.Series(dtype="int64"),
+        "Ativo":        pd.Series(dtype="object"),
+        "Tipo":         pd.Series(dtype="object"),
+        "Data_Compra":  pd.Series(dtype="object"),
+        "Preco_Compra": pd.Series(dtype="float64"),
+        "Qtd":          pd.Series(dtype="float64"),
+        "Data_Venda":   pd.Series(dtype="object"),
+        "Preco_Venda":  pd.Series(dtype="float64"),
+        "Lucro_R$":     pd.Series(dtype="float64"),
+        "Lucro_%":      pd.Series(dtype="float64"),
+        "Status":       pd.Series(dtype="object"),
+        "Alvo":         pd.Series(dtype="float64"),
+        "Stop":         pd.Series(dtype="float64"),
+    })
+
+
+def carregar_portfolio():
+    if os.path.exists(ARQUIVO):
+        df = pd.read_csv(ARQUIVO)
+        for c in ["Ativo", "Tipo", "Data_Compra", "Data_Venda", "Status"]:
+            if c in df.columns:
+                df[c] = df[c].astype(object)
+        return df
+    return _df_vazio()
+
+
+def salvar_portfolio(df):
+    df.to_csv(ARQUIVO, index=False)
+
+
+def registrar_compra(ativo, tipo, preco, qtd, alvo, stop):
+    df = carregar_portfolio()
+    if not df[(df["Ativo"] == ativo) & (df["Status"] == "ABERTO")].empty:
+        print(f"⚠️ {ativo} já está aberto.")
+        return None
+    novo_id = int(df["ID"].max() + 1) if not df.empty else 1
+    nova = pd.DataFrame([{
+        "ID": novo_id, "Ativo": ativo, "Tipo": tipo,
+        "Data_Compra": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "Preco_Compra": preco, "Qtd": qtd,
+        "Data_Venda": None, "Preco_Venda": None,
+        "Lucro_R$": None, "Lucro_%": None,
+        "Status": "ABERTO", "Alvo": alvo, "Stop": stop
+    }])
+    df = pd.concat([df, nova], ignore_index=True)
+    salvar_portfolio(df)
+    print(f"✅ Compra: {ativo} @ {preco:.2f}")
+    return nova
+
+
+def registrar_venda(ativo, preco_venda):
+    df = carregar_portfolio()
+    mask = (df["Ativo"] == ativo) & (df["Status"] == "ABERTO")
+    if df[mask].empty:
+        print(f"⚠️ Sem posição aberta de {ativo}.")
+        return None
+    idx = df[mask].index[0]
+    pc, qtd = df.at[idx, "Preco_Compra"], df.at[idx, "Qtd"]
+    lucro_rs = (preco_venda - pc) * qtd
+    lucro_pct = ((preco_venda / pc) - 1) * 100
+
+    df.at[idx, "Data_Venda"]  = datetime.now().strftime("%Y-%m-%d %H:%M")
+    df.at[idx, "Preco_Venda"] = preco_venda
+    df.at[idx, "Lucro_R$"]    = round(lucro_rs, 2)
+    df.at[idx, "Lucro_%"]     = round(lucro_pct, 2)
+    df.at[idx, "Status"]      = "FECHADO"
+    salvar_portfolio(df)
+
+    print(f"✅ Venda: {ativo} @ {preco_venda:.2f} | Lucro: R$ {lucro_rs:.2f} ({lucro_pct:+.2f}%)")
+    return {"ativo": ativo, "preco_compra": pc, "preco_venda": preco_venda,
+            "lucro_rs": lucro_rs, "lucro_pct": lucro_pct}
 
 # ==========================================
 # COLETA DE DADOS
