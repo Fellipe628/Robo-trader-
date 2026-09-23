@@ -179,3 +179,13 @@ DataHora,Ativo,Preco,RSI,Score,Veredito,LSTM_variacao,LSTM_tendencia,Macro_Score
 2026-09-23 16:45:02,ITUB4,42.97,65.3,2,🟡 AGUARDAR,0.01,📈 ALTA,1,RSI 65 sobrecomprado | SMA9>SMA21 | Acima SMA50 | MACD+ | Macro +1
 2026-09-23 16:45:02,BBAS3,22.47,52.6,5,🟢 COMPRAR,0.83,📈 ALTA,1,RSI 53 neutro | SMA9>SMA21 | Acima SMA50 | MACD+ | Bônus tendência | Macro +1
 2026-09-23 16:45:02,WEGE3,51.58,54.4,3,🟢 COMPRAR,-1.09,📉 QUEDA,1,RSI 54 neutro | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1
+2026-09-23 16:56:40,BTC,83933.97,19.0,-2,🟡 AGUARDAR,1.44,📈 ALTA,1,RSI 19 sobrevendido (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro +1
+2026-09-23 16:56:40,ETH,2658.11,8.4,-2,🟡 AGUARDAR,-0.31,📉 QUEDA,1,RSI 8 sobrevendido (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro +1
+2026-09-23 16:56:40,SOL,114.24,19.2,-2,🟡 AGUARDAR,0.03,📈 ALTA,1,RSI 19 sobrevendido (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro +1
+2026-09-23 16:56:40,BNB,763.85,16.9,-1,🟡 AGUARDAR,2.11,📈 ALTA,1,RSI 17 sobrevendido (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro +1 | LSTM +2.1%
+2026-09-23 16:56:40,ADA,0.24,14.5,2,🟡 AGUARDAR,3.61,📈 ALTA,1,RSI 15 sobrevendido | SMA9<SMA21 | Abaixo SMA50 | MACD- | Macro +1 | LSTM +3.6%
+2026-09-23 16:56:40,PETR4,49.7,58.4,1,🟡 AGUARDAR,-3.23,📉 QUEDA,1,RSI 58 alto (atenuado) | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1 | LSTM -3.2%
+2026-09-23 16:56:40,VALE3,72.1,18.0,2,🟡 AGUARDAR,6.45,📈 ALTA,1,RSI 18 sobrevendido | SMA9<SMA21 | Abaixo SMA50 | MACD- | Macro +1 | LSTM +6.5%
+2026-09-23 16:56:40,ITUB4,42.87,64.0,3,🟢 COMPRAR,0.2,📈 ALTA,1,RSI 64 alto | SMA9>SMA21 | Acima SMA50 | MACD+ | Macro +1
+2026-09-23 16:56:40,BBAS3,22.44,52.2,5,🟢 COMPRAR,0.96,📈 ALTA,1,RSI 52 neutro | SMA9>SMA21 | Acima SMA50 | MACD+ | Bônus tendência | Macro +1
+2026-09-23 16:56:40,WEGE3,51.44,53.5,3,🟢 COMPRAR,-0.82,📉 QUEDA,1,RSI 54 neutro | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1
