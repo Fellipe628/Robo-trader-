@@ -169,3 +169,13 @@ DataHora,Ativo,Preco,RSI,Score,Veredito,LSTM_variacao,LSTM_tendencia,Macro_Score
 2026-09-23 16:29:24,ITUB4,42.83,63.5,3,🟢 COMPRAR,0.29,📈 ALTA,1,RSI 64 alto | SMA9>SMA21 | Acima SMA50 | MACD+ | Macro +1
 2026-09-23 16:29:24,BBAS3,22.43,52.1,5,🟢 COMPRAR,1.01,📈 ALTA,1,RSI 52 neutro | SMA9>SMA21 | Acima SMA50 | MACD+ | Bônus tendência | Macro +1
 2026-09-23 16:29:24,WEGE3,51.39,53.2,3,🟢 COMPRAR,-0.72,📉 QUEDA,1,RSI 53 neutro | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1
+2026-09-23 16:45:02,BTC,84091.09,21.0,-2,🟡 AGUARDAR,1.26,📈 ALTA,1,RSI 21 sobrevendido (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro +1
+2026-09-23 16:45:02,ETH,2662.89,12.4,-2,🟡 AGUARDAR,-0.48,📉 QUEDA,1,RSI 12 sobrevendido (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro +1
+2026-09-23 16:45:02,SOL,114.53,22.6,-2,🟡 AGUARDAR,-0.2,📉 QUEDA,1,RSI 23 sobrevendido (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro +1
+2026-09-23 16:45:02,BNB,765.18,19.1,-2,🟡 AGUARDAR,1.94,📈 ALTA,1,RSI 19 sobrevendido (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro +1
+2026-09-23 16:45:02,ADA,0.24,16.7,2,🟡 AGUARDAR,3.35,📈 ALTA,1,RSI 17 sobrevendido | SMA9<SMA21 | Abaixo SMA50 | MACD- | Macro +1 | LSTM +3.4%
+2026-09-23 16:45:02,PETR4,49.74,58.6,1,🟡 AGUARDAR,-3.31,📉 QUEDA,1,RSI 59 alto (atenuado) | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1 | LSTM -3.3%
+2026-09-23 16:45:02,VALE3,72.21,18.1,2,🟡 AGUARDAR,6.29,📈 ALTA,1,RSI 18 sobrevendido | SMA9<SMA21 | Abaixo SMA50 | MACD- | Macro +1 | LSTM +6.3%
+2026-09-23 16:45:02,ITUB4,42.97,65.3,2,🟡 AGUARDAR,0.01,📈 ALTA,1,RSI 65 sobrecomprado | SMA9>SMA21 | Acima SMA50 | MACD+ | Macro +1
+2026-09-23 16:45:02,BBAS3,22.47,52.6,5,🟢 COMPRAR,0.83,📈 ALTA,1,RSI 53 neutro | SMA9>SMA21 | Acima SMA50 | MACD+ | Bônus tendência | Macro +1
+2026-09-23 16:45:02,WEGE3,51.58,54.4,3,🟢 COMPRAR,-1.09,📉 QUEDA,1,RSI 54 neutro | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1
