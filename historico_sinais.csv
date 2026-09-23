@@ -139,3 +139,13 @@ DataHora,Ativo,Preco,RSI,Score,Veredito,LSTM_variacao,LSTM_tendencia,Macro_Score
 2026-09-23 15:43:26,ITUB4,43.02,65.9,2,🟡 AGUARDAR,-0.15,📉 QUEDA,1,RSI 66 sobrecomprado | SMA9>SMA21 | Acima SMA50 | MACD+ | Macro +1
 2026-09-23 15:43:26,BBAS3,22.42,52.0,5,🟢 COMPRAR,1.05,📈 ALTA,1,RSI 52 neutro | SMA9>SMA21 | Acima SMA50 | MACD+ | Bônus tendência | Macro +1
 2026-09-23 15:43:26,WEGE3,51.39,53.2,3,🟢 COMPRAR,-0.72,📉 QUEDA,1,RSI 53 neutro | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1
+2026-09-23 15:55:42,BTC,84125.99,23.3,-1,🟡 AGUARDAR,1.47,📈 ALTA,1,RSI 23 sobrevendido (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Banda inf | Penalidade tendência | Macro +1
+2026-09-23 15:55:42,ETH,2659.01,16.0,-1,🟡 AGUARDAR,0.04,📈 ALTA,1,RSI 16 sobrevendido (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Banda inf | Penalidade tendência | Macro +1
+2026-09-23 15:55:42,SOL,113.96,23.3,-1,🟡 AGUARDAR,0.76,📈 ALTA,1,RSI 23 sobrevendido (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Banda inf | Penalidade tendência | Macro +1
+2026-09-23 15:55:42,BNB,761.94,18.8,0,🟡 AGUARDAR,2.69,📈 ALTA,1,RSI 19 sobrevendido (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Banda inf | Penalidade tendência | Macro +1 | LSTM +2.7%
+2026-09-23 15:55:42,ADA,0.24,22.9,3,🟢 COMPRAR,4.71,📈 ALTA,1,RSI 23 sobrevendido | SMA9<SMA21 | Abaixo SMA50 | MACD- | Banda inf | Macro +1 | LSTM +4.7%
+2026-09-23 15:55:42,PETR4,49.66,58.2,1,🟡 AGUARDAR,-3.15,📉 QUEDA,1,RSI 58 alto (atenuado) | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1 | LSTM -3.1%
+2026-09-23 15:55:42,VALE3,71.93,17.7,2,🟡 AGUARDAR,6.7,📈 ALTA,1,RSI 18 sobrevendido | SMA9<SMA21 | Abaixo SMA50 | MACD- | Macro +1 | LSTM +6.7%
+2026-09-23 15:55:42,ITUB4,42.9,64.4,3,🟢 COMPRAR,0.18,📈 ALTA,1,RSI 64 alto | SMA9>SMA21 | Acima SMA50 | MACD+ | Macro +1
+2026-09-23 15:55:42,BBAS3,22.38,51.5,3,🟢 COMPRAR,1.23,📈 ALTA,1,RSI 51 neutro | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1
+2026-09-23 15:55:42,WEGE3,51.3,52.6,3,🟢 COMPRAR,-0.55,📉 QUEDA,1,RSI 53 neutro | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1
