@@ -99,3 +99,13 @@ DataHora,Ativo,Preco,RSI,Score,Veredito,LSTM_variacao,LSTM_tendencia,Macro_Score
 2026-09-23 14:29:44,ITUB4,43.37,69.3,2,🟡 AGUARDAR,-0.91,📉 QUEDA,1,RSI 69 sobrecomprado | SMA9>SMA21 | Acima SMA50 | MACD+ | Macro +1
 2026-09-23 14:29:44,BBAS3,22.6,54.4,5,🟢 COMPRAR,0.25,📈 ALTA,1,RSI 54 neutro | SMA9>SMA21 | Acima SMA50 | MACD+ | Bônus tendência | Macro +1
 2026-09-23 14:29:44,WEGE3,51.82,56.0,2,🟢 COMPRAR (conf.),-1.55,📉 QUEDA,1,RSI 56 alto (atenuado) | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1
+2026-09-23 14:46:33,BTC,84262.97,26.2,1,🟡 AGUARDAR,1.51,📈 ALTA,1,RSI 26 sobrevendido | SMA9<SMA21 | Abaixo SMA50 | MACD- | Banda inf | Macro +1
+2026-09-23 14:46:33,ETH,2666.08,20.1,-1,🟡 AGUARDAR,0.14,📈 ALTA,1,RSI 20 sobrevendido (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Banda inf | Penalidade tendência | Macro +1
+2026-09-23 14:46:33,SOL,114.44,24.9,2,🟡 AGUARDAR,0.78,📈 ALTA,1,RSI 25 sobrevendido | SMA9<SMA21 | Abaixo SMA50 | MACD- | Banda inf | Macro +1
+2026-09-23 14:46:33,BNB,765.79,26.6,0,🟡 AGUARDAR,2.47,📈 ALTA,1,RSI 27 sobrevendido (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Banda inf | Penalidade tendência | Macro +1 | LSTM +2.5%
+2026-09-23 14:46:33,ADA,0.24,30.1,2,🟡 AGUARDAR,5.23,📈 ALTA,1,RSI 30 sobrevendido | SMA9<SMA21 | Abaixo SMA50 | MACD- | Banda inf | Macro +1 | LSTM +5.2%
+2026-09-23 14:46:33,PETR4,49.76,58.7,1,🟡 AGUARDAR,-3.34,📉 QUEDA,1,RSI 59 alto (atenuado) | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1 | LSTM -3.3%
+2026-09-23 14:46:33,VALE3,72.08,17.9,2,🟡 AGUARDAR,6.48,📈 ALTA,1,RSI 18 sobrevendido | SMA9<SMA21 | Abaixo SMA50 | MACD- | Macro +1 | LSTM +6.5%
+2026-09-23 14:46:33,ITUB4,43.27,68.7,2,🟡 AGUARDAR,-0.73,📉 QUEDA,1,RSI 69 sobrecomprado | SMA9>SMA21 | Acima SMA50 | MACD+ | Macro +1
+2026-09-23 14:46:33,BBAS3,22.47,52.6,5,🟢 COMPRAR,0.83,📈 ALTA,1,RSI 53 neutro | SMA9>SMA21 | Acima SMA50 | MACD+ | Bônus tendência | Macro +1
+2026-09-23 14:46:33,WEGE3,51.67,55.0,3,🟢 COMPRAR,-1.26,📉 QUEDA,1,RSI 55 neutro | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1
