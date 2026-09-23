@@ -159,3 +159,13 @@ DataHora,Ativo,Preco,RSI,Score,Veredito,LSTM_variacao,LSTM_tendencia,Macro_Score
 2026-09-23 16:10:54,ITUB4,42.86,63.9,3,🟢 COMPRAR,0.22,📈 ALTA,1,RSI 64 alto | SMA9>SMA21 | Acima SMA50 | MACD+ | Macro +1
 2026-09-23 16:10:54,BBAS3,22.39,51.6,3,🟢 COMPRAR,1.19,📈 ALTA,1,RSI 52 neutro | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1
 2026-09-23 16:10:54,WEGE3,51.38,53.1,3,🟢 COMPRAR,-0.7,📉 QUEDA,1,RSI 53 neutro | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1
+2026-09-23 16:29:24,BTC,84180.0,22.2,-2,🟡 AGUARDAR,1.16,📈 ALTA,1,RSI 22 sobrevendido (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro +1
+2026-09-23 16:29:24,ETH,2660.81,10.3,-2,🟡 AGUARDAR,-0.4,📉 QUEDA,1,RSI 10 sobrevendido (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro +1
+2026-09-23 16:29:24,SOL,114.61,23.0,-2,🟡 AGUARDAR,-0.27,📉 QUEDA,1,RSI 23 sobrevendido (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro +1
+2026-09-23 16:29:24,BNB,764.68,18.5,-1,🟡 AGUARDAR,2.01,📈 ALTA,1,RSI 18 sobrevendido (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro +1 | LSTM +2.0%
+2026-09-23 16:29:24,ADA,0.24,15.5,2,🟡 AGUARDAR,3.45,📈 ALTA,1,RSI 16 sobrevendido | SMA9<SMA21 | Abaixo SMA50 | MACD- | Macro +1 | LSTM +3.5%
+2026-09-23 16:29:24,PETR4,49.71,58.4,1,🟡 AGUARDAR,-3.25,📉 QUEDA,1,RSI 58 alto (atenuado) | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1 | LSTM -3.2%
+2026-09-23 16:29:24,VALE3,72.04,17.9,2,🟡 AGUARDAR,6.54,📈 ALTA,1,RSI 18 sobrevendido | SMA9<SMA21 | Abaixo SMA50 | MACD- | Macro +1 | LSTM +6.5%
+2026-09-23 16:29:24,ITUB4,42.83,63.5,3,🟢 COMPRAR,0.29,📈 ALTA,1,RSI 64 alto | SMA9>SMA21 | Acima SMA50 | MACD+ | Macro +1
+2026-09-23 16:29:24,BBAS3,22.43,52.1,5,🟢 COMPRAR,1.01,📈 ALTA,1,RSI 52 neutro | SMA9>SMA21 | Acima SMA50 | MACD+ | Bônus tendência | Macro +1
+2026-09-23 16:29:24,WEGE3,51.39,53.2,3,🟢 COMPRAR,-0.72,📉 QUEDA,1,RSI 53 neutro | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1
