@@ -982,7 +982,6 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
 # ==========================================
 def main():
     print("=" * 75)
-    enviar_telegram("🧪 Teste GitHub — Telegram funcionando")
     print("🤖 ROBÔ TRADER — CICLO GITHUB ACTIONS")
     print(f"📅 {datetime.now().strftime('%d/%m/%Y %H:%M')}")
     print(f"⚙️ Perfil: {PERFIL_ATIVO} | Modo: {'TREINO' if TREINAR_LSTM else 'CARREGAR'}")
