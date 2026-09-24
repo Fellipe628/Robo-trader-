@@ -369,3 +369,13 @@ DataHora,Ativo,Preco,RSI,Score,Veredito,LSTM_variacao,LSTM_tendencia,Macro_Score
 2026-09-24 03:14:40,ITUB4,43.18,75.7,1,🟡 AGUARDAR,-0.37,📉 QUEDA,1,RSI 76 sobrecomprado | SMA9>SMA21 | Acima SMA50 | MACD+ | Macro +1
 2026-09-24 03:14:40,BBAS3,22.67,65.0,4,🟢 COMPRAR,-0.31,📉 QUEDA,1,RSI 65 alto (atenuado) | SMA9>SMA21 | Acima SMA50 | MACD+ | Bônus tendência | Macro +1
 2026-09-24 03:14:40,WEGE3,51.8,61.3,2,🟢 COMPRAR (conf.),-1.55,📉 QUEDA,1,RSI 61 alto (atenuado) | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1
+2026-09-24 06:14:19,BTC,84157.98,46.6,-1,🟡 AGUARDAR,-0.78,📉 QUEDA,1,RSI 47 neutro | SMA9<SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro +1
+2026-09-24 06:14:19,ETH,2689.71,63.2,-2,🟡 AGUARDAR,-1.34,📉 QUEDA,1,RSI 63 alto | SMA9<SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro +1
+2026-09-24 06:14:19,SOL,115.2,55.9,-3,🔴 VENDER,-2.3,📉 QUEDA,1,RSI 56 alto | SMA9<SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro +1 | LSTM -2.3%
+2026-09-24 06:14:19,BNB,773.52,62.3,0,🟡 AGUARDAR,-0.92,📉 QUEDA,1,RSI 62 alto | SMA9>SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro +1
+2026-09-24 06:14:19,ADA,0.24,55.5,-2,🟡 AGUARDAR,-1.75,📉 QUEDA,1,RSI 56 alto | SMA9<SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro +1
+2026-09-24 06:14:19,PETR4,48.35,58.3,3,🟢 COMPRAR,2.15,📈 ALTA,1,RSI 58 alto (atenuado) | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1 | LSTM +2.1%
+2026-09-24 06:14:19,VALE3,72.83,32.2,1,🟡 AGUARDAR,4.69,📈 ALTA,1,RSI 32 sobrevendido | SMA9<SMA21 | Abaixo SMA50 | MACD- | Macro +1 | LSTM +4.7%
+2026-09-24 06:14:19,ITUB4,43.18,75.7,3,🟢 COMPRAR,-0.69,📉 QUEDA,1,RSI 76 sobrecomprado (atenuado) | SMA9>SMA21 | Acima SMA50 | MACD+ | Bônus tendência | Macro +1
+2026-09-24 06:14:19,BBAS3,22.67,65.0,4,🟢 COMPRAR,0.17,📈 ALTA,1,RSI 65 alto (atenuado) | SMA9>SMA21 | Acima SMA50 | MACD+ | Bônus tendência | Macro +1
+2026-09-24 06:14:19,WEGE3,51.8,61.3,1,🟡 AGUARDAR,-2.38,📉 QUEDA,1,RSI 61 alto (atenuado) | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1 | LSTM -2.4%
