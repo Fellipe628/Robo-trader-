@@ -359,3 +359,13 @@ DataHora,Ativo,Preco,RSI,Score,Veredito,LSTM_variacao,LSTM_tendencia,Macro_Score
 2026-09-24 01:14:41,ITUB4,42.37,58.4,3,🟢 COMPRAR,1.43,📈 ALTA,1,RSI 58 alto | SMA9>SMA21 | Acima SMA50 | MACD+ | Macro +1
 2026-09-24 01:14:41,BBAS3,22.17,49.0,4,🟢 COMPRAR,2.19,📈 ALTA,1,RSI 49 neutro | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1 | LSTM +2.2%
 2026-09-24 01:14:41,WEGE3,51.16,51.8,3,🟢 COMPRAR,-0.28,📉 QUEDA,1,RSI 52 neutro | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1
+2026-09-24 03:14:40,BTC,84263.18,44.8,-1,🟡 AGUARDAR,-0.44,📉 QUEDA,1,RSI 45 baixo (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro +1
+2026-09-24 03:14:40,ETH,2680.89,52.5,-1,🟡 AGUARDAR,-1.97,📉 QUEDA,1,RSI 52 neutro | SMA9<SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro +1
+2026-09-24 03:14:40,SOL,115.11,49.6,-2,🟡 AGUARDAR,-2.17,📉 QUEDA,1,RSI 50 neutro | SMA9<SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro +1 | LSTM -2.2%
+2026-09-24 03:14:40,BNB,771.59,58.7,-2,🟡 AGUARDAR,-0.59,📉 QUEDA,1,RSI 59 alto | SMA9<SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro +1
+2026-09-24 03:14:40,ADA,0.24,49.7,-1,🟡 AGUARDAR,-1.94,📉 QUEDA,1,RSI 50 neutro | SMA9<SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro +1
+2026-09-24 03:14:40,PETR4,48.35,58.3,2,🟢 COMPRAR (conf.),0.3,📈 ALTA,1,RSI 58 alto (atenuado) | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1
+2026-09-24 03:14:40,VALE3,72.83,32.2,1,🟡 AGUARDAR,5.84,📈 ALTA,1,RSI 32 sobrevendido | SMA9<SMA21 | Abaixo SMA50 | MACD- | Macro +1 | LSTM +5.8%
+2026-09-24 03:14:40,ITUB4,43.18,75.7,1,🟡 AGUARDAR,-0.37,📉 QUEDA,1,RSI 76 sobrecomprado | SMA9>SMA21 | Acima SMA50 | MACD+ | Macro +1
+2026-09-24 03:14:40,BBAS3,22.67,65.0,4,🟢 COMPRAR,-0.31,📉 QUEDA,1,RSI 65 alto (atenuado) | SMA9>SMA21 | Acima SMA50 | MACD+ | Bônus tendência | Macro +1
+2026-09-24 03:14:40,WEGE3,51.8,61.3,2,🟢 COMPRAR (conf.),-1.55,📉 QUEDA,1,RSI 61 alto (atenuado) | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1
