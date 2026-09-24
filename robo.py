@@ -14,7 +14,8 @@ PASTA         = "."
 PASTA_MODELOS = f"{PASTA}/modelos_lstm"
 ARQUIVO       = f"{PASTA}/portfolio.csv"
 ARQUIVO_LOG   = f"{PASTA}/historico_sinais.csv"
-
+ARQUIVO_COOLDOWN = f"{PASTA}/cooldowns.csv"
+COOLDOWN_HORAS   = 6
 # --- Telegram ---
 TELEGRAM_TOKEN   = os.environ.get("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
@@ -263,8 +264,27 @@ def salvar_analise(tabela):
         except Exception:
             df_final = df_novo
     else:
-        df_final = df_novo
+       df_final = df_novo
     df_final.to_csv(ARQUIVO_LOG, index=False)
+
+
+def _carregar_cooldowns():
+    if os.path.exists(ARQUIVO_COOLDOWN):
+        try:
+            df = pd.read_csv(ARQUIVO_COOLDOWN)
+            df["Cooldown_Ate"] = pd.to_datetime(df["Cooldown_Ate"], errors="coerce")
+            return df
+        except Exception:
+            pass
+    return pd.DataFrame(columns=["Ativo", "Cooldown_Ate", "Motivo"])
+
+
+def _salvar_cooldowns(df):
+    df.to_csv(ARQUIVO_COOLDOWN, index=False)
+
+
+def registrar_cooldown(ativo, motivo="Stop"):
+    ...
   
 
 # ==========================================
@@ -833,10 +853,19 @@ def verificar_posicoes_abertas(tabela, dfs, perfil=None):
         preco_atual = float(df["close"].iloc[-1])
         preco_compra = float(pos["Preco_Compra"])
         alvo = float(pos["Alvo"])
-        stop_atual = float(pos["Stop_Atual"] or pos["Stop_Inicial"] or pos.get("Stop", 0))
-        qtd_restante = float(pos["Qtd_Restante"] or pos["Qtd"])
 
-        # 1. Trailing stop
+        stop_atual_raw = pos.get("Stop_Atual")
+        if pd.isna(stop_atual_raw):
+            stop_atual_raw = pos.get("Stop_Inicial")
+        if pd.isna(stop_atual_raw):
+            stop_atual_raw = pos.get("Stop")
+        stop_atual = float(stop_atual_raw) if pd.notna(stop_atual_raw) else preco_compra * 0.98
+
+        qtd_restante_raw = pos.get("Qtd_Restante")
+        if pd.isna(qtd_restante_raw):
+            qtd_restante_raw = pos.get("Qtd")
+        qtd_restante = float(qtd_restante_raw) if pd.notna(qtd_restante_raw) else 0
+
         lucro_pct = (preco_atual / preco_compra - 1) * 100
         if lucro_pct >= cfg["trailing_ativa_em"]:
             novo_stop = preco_atual * (1 - cfg["distancia_trailing"] / 100)
@@ -845,7 +874,6 @@ def verificar_posicoes_abertas(tabela, dfs, perfil=None):
                 alerta_trailing(ativo, stop_atual, novo_stop, preco_atual)
                 stop_atual = novo_stop
 
-        # 2. Alvo
         if preco_atual >= alvo:
             if cfg["alvo_parcial"] and qtd_restante > 0:
                 res = registrar_venda(ativo, preco_atual,
@@ -870,27 +898,26 @@ def verificar_posicoes_abertas(tabela, dfs, perfil=None):
                 fechamentos.append(ativo)
                 continue
 
-        # 3. Stop
         if preco_atual <= stop_atual:
             motivo = "🛑 Stop" if stop_atual == float(pos["Stop_Inicial"] or 0) else "📉 Trailing Stop"
             res = registrar_venda(ativo, preco_atual, motivo=motivo)
             if res:
                 alerta_venda(res["ativo"], res["preco_compra"], res["preco_venda"],
                              res["lucro_rs"], res["lucro_pct"], motivo)
+                registrar_cooldown(ativo, motivo="Stop")
             fechamentos.append(ativo)
             continue
 
-        # 4. Reversão técnica
         linha = tabela[tabela["Ativo"] == ativo]
         if not linha.empty and "VENDER" in str(linha.iloc[0]["Veredito"]):
             res = registrar_venda(ativo, preco_atual, motivo="🔴 Reversão técnica")
             if res:
                 alerta_venda(res["ativo"], res["preco_compra"], res["preco_venda"],
                              res["lucro_rs"], res["lucro_pct"], "🔴 Reversão")
+                registrar_cooldown(ativo, motivo="Reversão")
             fechamentos.append(ativo)
 
     return fechamentos
-
 
 def abrir_novas_posicoes(tabela, dfs, perfil=None):
     if perfil is None:
@@ -901,6 +928,10 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
         ativo = row["Ativo"]
         veredito = str(row["Veredito"])
         if "COMPRA" not in veredito:
+            continue
+
+        if em_cooldown(ativo):
+            print(f"   ⏸️ {ativo} em cooldown, pulando.")
             continue
 
         portfolio = carregar_portfolio()
