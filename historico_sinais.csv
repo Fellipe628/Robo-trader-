@@ -389,3 +389,13 @@ DataHora,Ativo,Preco,RSI,Score,Veredito,LSTM_variacao,LSTM_tendencia,Macro_Score
 2026-09-24 09:16:41,ITUB4,42.37,58.4,3,🟢 COMPRAR,1.25,📈 ALTA,1,RSI 58 alto | SMA9>SMA21 | Acima SMA50 | MACD+ | Macro +1
 2026-09-24 09:16:41,BBAS3,22.17,49.0,4,🟢 COMPRAR,2.63,📈 ALTA,1,RSI 49 neutro | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1 | LSTM +2.6%
 2026-09-24 09:16:41,WEGE3,51.16,51.8,3,🟢 COMPRAR,-1.07,📉 QUEDA,1,RSI 52 neutro | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1
+2026-09-24 10:15:49,BTC,83246.67,32.5,-2,🟡 AGUARDAR,0.11,📈 ALTA,1,RSI 32 sobrevendido (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro +1
+2026-09-24 10:15:49,ETH,2637.91,33.4,-1,🟡 AGUARDAR,0.46,📈 ALTA,1,RSI 33 sobrevendido (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Banda inf | Penalidade tendência | Macro +1
+2026-09-24 10:15:49,SOL,112.95,37.3,-2,🟡 AGUARDAR,-0.47,📉 QUEDA,1,RSI 37 baixo (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Banda inf | Penalidade tendência | Macro +1
+2026-09-24 10:15:49,BNB,766.8,50.4,1,🟡 AGUARDAR,0.29,📈 ALTA,1,RSI 50 neutro | SMA9>SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro +1
+2026-09-24 10:15:49,ADA,0.23,42.3,-1,🟡 AGUARDAR,1.77,📈 ALTA,1,RSI 42 baixo (atenuado) | SMA9>SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro +1
+2026-09-24 10:15:49,PETR4,49.6,57.9,2,🟢 COMPRAR (conf.),-0.87,📉 QUEDA,1,RSI 58 alto (atenuado) | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1
+2026-09-24 10:15:49,VALE3,71.48,17.2,2,🟡 AGUARDAR,6.16,📈 ALTA,1,RSI 17 sobrevendido | SMA9<SMA21 | Abaixo SMA50 | MACD- | Macro +1 | LSTM +6.2%
+2026-09-24 10:15:49,ITUB4,42.37,58.4,3,🟢 COMPRAR,1.25,📈 ALTA,1,RSI 58 alto | SMA9>SMA21 | Acima SMA50 | MACD+ | Macro +1
+2026-09-24 10:15:49,BBAS3,22.17,49.0,4,🟢 COMPRAR,2.63,📈 ALTA,1,RSI 49 neutro | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1 | LSTM +2.6%
+2026-09-24 10:15:49,WEGE3,51.16,51.8,3,🟢 COMPRAR,-1.07,📉 QUEDA,1,RSI 52 neutro | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1
