@@ -469,3 +469,13 @@ DataHora,Ativo,Preco,RSI,Score,Veredito,LSTM_variacao,LSTM_tendencia,Macro_Score
 2026-09-24 13:47:18,ITUB4,42.49,55.4,3,🟢 COMPRAR,0.83,📈 ALTA,1,RSI 55 alto | SMA9>SMA21 | Acima SMA50 | MACD+ | Macro +1
 2026-09-24 13:47:18,BBAS3,22.02,45.0,5,🟢 COMPRAR,2.97,📈 ALTA,1,RSI 45 baixo | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1 | LSTM +3.0%
 2026-09-24 13:47:18,WEGE3,50.3,39.6,4,🟢 COMPRAR,0.67,📈 ALTA,1,RSI 40 baixo | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1
+2026-09-24 14:10:51,BTC,84258.01,52.2,-1,🟡 AGUARDAR,-1.24,📉 QUEDA,1,RSI 52 neutro | SMA9<SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro +1
+2026-09-24 14:10:51,ETH,2669.11,47.7,-1,🟡 AGUARDAR,-1.09,📉 QUEDA,1,RSI 48 neutro | SMA9<SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro +1
+2026-09-24 14:10:51,SOL,115.02,52.1,-2,🟡 AGUARDAR,-2.6,📉 QUEDA,1,RSI 52 neutro | SMA9<SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro +1 | LSTM -2.6%
+2026-09-24 14:10:51,BNB,779.81,65.2,1,🟡 AGUARDAR,-1.15,📉 QUEDA,1,RSI 65 sobrecomprado | SMA9>SMA21 | Acima SMA50 | MACD+ | Banda sup | Macro +1
+2026-09-24 14:10:51,ADA,0.24,63.0,-1,🟡 AGUARDAR,-2.32,📉 QUEDA,1,RSI 63 alto | SMA9>SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro +1 | LSTM -2.3%
+2026-09-24 14:10:51,PETR4,49.99,64.1,2,🟢 COMPRAR (conf.),-1.88,📉 QUEDA,1,RSI 64 alto (atenuado) | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1
+2026-09-24 14:10:51,VALE3,71.38,20.4,2,🟡 AGUARDAR,5.75,📈 ALTA,1,RSI 20 sobrevendido | SMA9<SMA21 | Abaixo SMA50 | MACD- | Macro +1 | LSTM +5.8%
+2026-09-24 14:10:51,ITUB4,42.54,55.8,3,🟢 COMPRAR,0.71,📈 ALTA,1,RSI 56 alto | SMA9>SMA21 | Acima SMA50 | MACD+ | Macro +1
+2026-09-24 14:10:51,BBAS3,22.0,44.8,5,🟢 COMPRAR,3.07,📈 ALTA,1,RSI 45 baixo | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1 | LSTM +3.1%
+2026-09-24 14:10:51,WEGE3,50.51,40.6,4,🟢 COMPRAR,0.25,📈 ALTA,1,RSI 41 baixo | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1
