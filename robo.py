@@ -267,7 +267,6 @@ def salvar_analise(tabela):
        df_final = df_novo
     df_final.to_csv(ARQUIVO_LOG, index=False)
 
-
 def _carregar_cooldowns():
     if os.path.exists(ARQUIVO_COOLDOWN):
         try:
@@ -282,10 +281,30 @@ def _carregar_cooldowns():
 def _salvar_cooldowns(df):
     df.to_csv(ARQUIVO_COOLDOWN, index=False)
 
-
 def registrar_cooldown(ativo, motivo="Stop"):
-    ...
-  
+    df = _carregar_cooldowns()
+    df = df[df["Ativo"] != ativo]
+    nova = pd.DataFrame([{
+        "Ativo":        ativo,
+        "Cooldown_Ate": datetime.now() + pd.Timedelta(hours=COOLDOWN_HORAS),
+        "Motivo":       motivo,
+    }])
+    df = pd.concat([df, nova], ignore_index=True)
+    _salvar_cooldowns(df)
+    print(f"   ⏸️ Cooldown: {ativo} até "
+          f"{(datetime.now() + pd.Timedelta(hours=COOLDOWN_HORAS)).strftime('%d/%m %H:%M')}")
+
+
+def em_cooldown(ativo):
+    df = _carregar_cooldowns()
+    linha = df[df["Ativo"] == ativo]
+    if linha.empty:
+        return False
+    ate = linha.iloc[0]["Cooldown_Ate"]
+    if pd.isna(ate):
+        return False
+    return datetime.now() < ate
+
 
 # ==========================================
 # COLETA DE DADOS
