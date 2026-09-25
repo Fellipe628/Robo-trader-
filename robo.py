@@ -1077,13 +1077,8 @@ def main():
     print(f"📅 {datetime.now().strftime('%d/%m/%Y %H:%M')}")
     print(f"⚙️ Perfil: {PERFIL_ATIVO} | Modo: {'TREINO' if TREINAR_LSTM else 'CARREGAR'}")
     print("=" * 75)
-      
-# Verifica se é modo relatório semanal (sábado)
-    MODO_RELATORIO = os.environ.get("MODO_RELATORIO", "false").lower() == "true"
-        if MODO_RELATORIO:
-        gerar_relatorio_semanal()
-        return
-   
+     
+  
     print("\n🧠 Analisando ativos...\n")
     tabela, dfs = rodar_watchlist_completa(treinar_lstm_flag=TREINAR_LSTM,
                                             perfil=PERFIL_ATIVO)
@@ -1125,4 +1120,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if os.environ.get("MODO_RELATORIO", "false").lower() == "true":
+        gerar_relatorio_semanal()
+    else:
+        main()
