@@ -1079,10 +1079,10 @@ def main():
     print("=" * 75)
       
 # Verifica se é modo relatório semanal (sábado)
-MODO_RELATORIO = os.environ.get("MODO_RELATORIO", "false").lower() == "true"
-if MODO_RELATORIO:
-    gerar_relatorio_semanal()
-    return
+    MODO_RELATORIO = os.environ.get("MODO_RELATORIO", "false").lower() == "true"
+        if MODO_RELATORIO:
+        gerar_relatorio_semanal()
+        return
    
     print("\n🧠 Analisando ativos...\n")
     tabela, dfs = rodar_watchlist_completa(treinar_lstm_flag=TREINAR_LSTM,
