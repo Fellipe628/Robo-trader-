@@ -977,6 +977,96 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
 
     return novas
   
+# ==========================================
+# RELATÓRIO SEMANAL
+# ==========================================
+def gerar_relatorio_semanal():
+    """Gera relatório dos últimos 7 dias e envia via Telegram."""
+    print("=" * 75)
+    print("📊 RELATÓRIO SEMANAL — ROBÔ TRADER")
+    print(f"📅 {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+    print("=" * 75)
+
+    agora = datetime.now()
+    inicio_semana = agora - pd.Timedelta(days=7)
+
+    portfolio = carregar_portfolio()
+
+    if portfolio.empty:
+        enviar_telegram("📊 *RELATÓRIO SEMANAL*\n\nSem trades registrados.")
+        return
+
+    portfolio["Data_Compra"] = pd.to_datetime(portfolio["Data_Compra"], errors="coerce")
+    if "Data_Venda" in portfolio.columns:
+        portfolio["Data_Venda"] = pd.to_datetime(portfolio["Data_Venda"], errors="coerce")
+
+    fechadas = portfolio[portfolio["Status"] == "FECHADO"].copy()
+    fechadas_semana = fechadas[fechadas["Data_Venda"] >= inicio_semana] if len(fechadas) else fechadas
+    abertas_semana = portfolio[portfolio["Data_Compra"] >= inicio_semana]
+
+    n_fechadas = len(fechadas_semana)
+    n_abertas = len(abertas_semana)
+    n_total_abertas = len(portfolio[portfolio["Status"] == "ABERTO"])
+
+    if n_fechadas > 0:
+        ganhos = fechadas_semana[fechadas_semana["Lucro_R$"] > 0]
+        win_rate = len(ganhos) / n_fechadas * 100
+        lucro_total = fechadas_semana["Lucro_R$"].sum()
+        melhor = fechadas_semana.loc[fechadas_semana["Lucro_%"].idxmax()]
+        pior = fechadas_semana.loc[fechadas_semana["Lucro_%"].idxmin()]
+        motivos = fechadas_semana["Motivo"].astype(str)
+        stops = int(motivos.str.contains("Stop").sum())
+        alvos = int(motivos.str.contains("Alvo").sum())
+        reversoes = int(motivos.str.contains("Revers").sum())
+    else:
+        win_rate = 0
+        lucro_total = 0
+        melhor = pior = None
+        stops = alvos = reversoes = 0
+
+    msg = f"📊 *RELATÓRIO SEMANAL*\n"
+    msg += f"📅 {inicio_semana.strftime('%d/%m')} a {agora.strftime('%d/%m/%Y')}\n\n"
+    msg += f"📌 *Trades*\n"
+    msg += f"• Abertos: {n_abertas}\n"
+    msg += f"• Fechados: {n_fechadas}\n"
+    msg += f"• Em carteira: {n_total_abertas}\n"
+
+    if n_fechadas > 0:
+        emoji_lucro = "✅" if lucro_total > 0 else "❌"
+        msg += f"• Acerto: {win_rate:.1f}%\n"
+        msg += f"• Lucro: {emoji_lucro} R$ {lucro_total:+,.2f}\n\n"
+        msg += f"📊 *Saídas*\n"
+        msg += f"• 🎯 Alvos: {alvos}\n"
+        msg += f"• 🛑 Stops: {stops}\n"
+        msg += f"• 🔴 Reversões: {reversoes}\n\n"
+        if melhor is not None:
+            msg += f"🏆 *Melhor*: {melhor['Ativo']} ({melhor['Lucro_%']:+.2f}%)\n"
+        if pior is not None:
+            msg += f"💔 *Pior*: {pior['Ativo']} ({pior['Lucro_%']:+.2f}%)\n"
+    else:
+        msg += "\n⚠️ Nenhum trade fechado no período.\n"
+
+    msg += f"\n💡 *Aprendizado*\n"
+    if n_fechadas == 0:
+        msg += "• Semana de observação — mercado sem oportunidade clara.\n"
+    elif win_rate < 30:
+        msg += "• Acerto baixo — considerar apertar stops ou filtros.\n"
+    elif win_rate > 60:
+        msg += "• Acerto alto — estratégia funcionando bem.\n"
+    else:
+        msg += "• Acerto moderado — normal em mercado misto.\n"
+
+    if n_fechadas >= 3 and stops > alvos:
+        msg += "• Muitos stops — mercado volátil ou entradas prematuras.\n"
+    if n_fechadas >= 3 and alvos > stops:
+        msg += "• Alvos dominando — momentum favorável.\n"
+
+    msg += f"\n⏰ {agora.strftime('%d/%m/%Y %H:%M')}"
+
+    enviar_telegram(msg)
+    print(msg)
+    print("=" * 75)
+
 
 # ==========================================
 # EXECUÇÃO PRINCIPAL
