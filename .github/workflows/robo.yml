@@ -49,11 +49,19 @@ jobs:
             echo "💾 Modo CARREGAR LSTM salvo"
           fi
 
+          if [[ "${{ github.event.schedule }}" == "0 12 * * 6" ]]; then
+            echo "relatorio=true" >> $GITHUB_OUTPUT
+            echo "📊 Modo RELATÓRIO SEMANAL"
+          else
+            echo "relatorio=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Rodar robô
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TREINAR_LSTM: ${{ steps.modo.outputs.treinar }}
+          MODO_RELATORIO: ${{ steps.modo.outputs.relatorio }}
         run: python robo.py
 
       - name: Salvar dados atualizados
