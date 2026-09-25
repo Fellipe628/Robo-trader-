@@ -163,7 +163,6 @@ def registrar_compra(ativo, tipo, preco, qtd, alvo, stop, perfil="equilibrado"):
     print(f"✅ Compra: {ativo} @ {preco:.2f} | Perfil: {perfil}")
     return nova
 
-
 def atualizar_trailing(ativo, preco_atual, distancia_pct):
     df = carregar_portfolio()
     mask = (df["Ativo"] == ativo) & (df["Status"] == "ABERTO")
@@ -172,11 +171,11 @@ def atualizar_trailing(ativo, preco_atual, distancia_pct):
     idx = df[mask].index[0]
     stop_atual = float(df.at[idx, "Stop_Atual"] or 0)
     novo_stop = preco_atual * (1 - distancia_pct / 100)
-    if novo_stop > stop_atual:
+    if round(novo_stop, 2) > round(stop_atual, 2):
         df.at[idx, "Stop_Atual"] = round(novo_stop, 2)
         salvar_portfolio(df)
-        return novo_stop
-    return stop_atual
+        return round(novo_stop, 2)
+    return round(stop_atual, 2)
 
 
 def registrar_venda(ativo, preco_venda, motivo="", parcial=False, pct_parcial=0.5):
@@ -885,13 +884,15 @@ def verificar_posicoes_abertas(tabela, dfs, perfil=None):
             qtd_restante_raw = pos.get("Qtd")
         qtd_restante = float(qtd_restante_raw) if pd.notna(qtd_restante_raw) else 0
 
-        lucro_pct = (preco_atual / preco_compra - 1) * 100
+                lucro_pct = (preco_atual / preco_compra - 1) * 100
         if lucro_pct >= cfg["trailing_ativa_em"]:
             novo_stop = preco_atual * (1 - cfg["distancia_trailing"] / 100)
-            if novo_stop > stop_atual:
+            novo_stop_arred = round(novo_stop, 2)
+            stop_atual_arred = round(stop_atual, 2)
+            if novo_stop_arred > stop_atual_arred:
                 atualizar_trailing(ativo, preco_atual, cfg["distancia_trailing"])
-                alerta_trailing(ativo, stop_atual, novo_stop, preco_atual)
-                stop_atual = novo_stop
+                alerta_trailing(ativo, stop_atual_arred, novo_stop_arred, preco_atual)
+                stop_atual = novo_stop_arred
 
         if preco_atual >= alvo:
             if cfg["alvo_parcial"] and qtd_restante > 0:
