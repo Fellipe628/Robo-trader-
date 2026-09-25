@@ -884,7 +884,7 @@ def verificar_posicoes_abertas(tabela, dfs, perfil=None):
             qtd_restante_raw = pos.get("Qtd")
         qtd_restante = float(qtd_restante_raw) if pd.notna(qtd_restante_raw) else 0
 
-                lucro_pct = (preco_atual / preco_compra - 1) * 100
+        lucro_pct = (preco_atual / preco_compra - 1) * 100
         if lucro_pct >= cfg["trailing_ativa_em"]:
             novo_stop = preco_atual * (1 - cfg["distancia_trailing"] / 100)
             novo_stop_arred = round(novo_stop, 2)
