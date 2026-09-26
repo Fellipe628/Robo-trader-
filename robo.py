@@ -1,6 +1,6 @@
 # ==========================================
-# ROBÔ TRADER — GitHub Actions (v2)
-# LSTM + Macro + Trailing Stop + Alvo Parcial
+# ROBÔ TRADER — GitHub Actions (v3)
+# LSTM + Macro + Trailing + Sentimento
 # ==========================================
 import os
 import time
@@ -15,11 +15,17 @@ PASTA_MODELOS = f"{PASTA}/modelos_lstm"
 ARQUIVO       = f"{PASTA}/portfolio.csv"
 ARQUIVO_LOG   = f"{PASTA}/historico_sinais.csv"
 ARQUIVO_COOLDOWN = f"{PASTA}/cooldowns.csv"
+ARQUIVO_SENTIMENTO = f"{PASTA}/sentimento_cache.json"
 COOLDOWN_HORAS   = 6
+
 # --- Telegram ---
 TELEGRAM_TOKEN   = os.environ.get("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 _tg_ok = bool(TELEGRAM_TOKEN and TELEGRAM_CHAT_ID)
+
+# --- APITube (sentimento) ---
+APITUBE_KEY = os.environ.get("APITUBE_KEY")
+_sentimento_ok = bool(APITUBE_KEY)
 
 # --- Modo de execução (vem do workflow) ---
 TREINAR_LSTM = os.environ.get("TREINAR_LSTM", "false").lower() == "true"
@@ -46,6 +52,20 @@ MACRO_TICKERS = {
     "Dolar":  "USDBRL=X",
     "SP500":  "^GSPC",
     "Ibov":   "^BVSP",
+}
+
+# Queries de busca de notícias (com acentos corretos)
+QUERIES_SENTIMENTO = {
+    "PETR4": "Petrobras",
+    "VALE3": "Vale",
+    "ITUB4": "Itaú",
+    "BBAS3": "Banco do Brasil",
+    "WEGE3": "WEG",
+    "BTC":   "Bitcoin",
+    "ETH":   "Ethereum",
+    "SOL":   "Solana",
+    "BNB":   "Binance Coin",
+    "ADA":   "Cardano",
 }
 
 # --- Parâmetros de trading ---
@@ -163,6 +183,7 @@ def registrar_compra(ativo, tipo, preco, qtd, alvo, stop, perfil="equilibrado"):
     print(f"✅ Compra: {ativo} @ {preco:.2f} | Perfil: {perfil}")
     return nova
 
+
 def atualizar_trailing(ativo, preco_atual, distancia_pct):
     df = carregar_portfolio()
     mask = (df["Ativo"] == ativo) & (df["Status"] == "ABERTO")
@@ -253,6 +274,7 @@ def salvar_analise(tabela):
             "LSTM_variacao":   row.get("LSTM_variacao"),
             "LSTM_tendencia":  row.get("LSTM_tendencia"),
             "Macro_Score":     row.get("Macro_Score"),
+            "Sentimento":      row.get("Sentimento"),
             "Motivos":         row["Motivos"],
         })
     df_novo = pd.DataFrame(linhas)
@@ -263,9 +285,13 @@ def salvar_analise(tabela):
         except Exception:
             df_final = df_novo
     else:
-       df_final = df_novo
+        df_final = df_novo
     df_final.to_csv(ARQUIVO_LOG, index=False)
 
+
+# ==========================================
+# COOLDOWN (após stop)
+# ==========================================
 def _carregar_cooldowns():
     if os.path.exists(ARQUIVO_COOLDOWN):
         try:
@@ -279,6 +305,7 @@ def _carregar_cooldowns():
 
 def _salvar_cooldowns(df):
     df.to_csv(ARQUIVO_COOLDOWN, index=False)
+
 
 def registrar_cooldown(ativo, motivo="Stop"):
     df = _carregar_cooldowns()
@@ -304,6 +331,92 @@ def em_cooldown(ativo):
         return False
     return datetime.now() < ate
 
+
+# ==========================================
+# SENTIMENTO (APITube + Cache diário)
+# ==========================================
+def _carregar_cache_sentimento():
+    if os.path.exists(ARQUIVO_SENTIMENTO):
+        try:
+            with open(ARQUIVO_SENTIMENTO, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+
+def _salvar_cache_sentimento(cache):
+    with open(ARQUIVO_SENTIMENTO, "w", encoding="utf-8") as f:
+        json.dump(cache, f, ensure_ascii=False, indent=2)
+
+
+def _buscar_sentimento_ativo(query, limit=10):
+    if not _sentimento_ok:
+        return 0.0
+    url = "https://api.apitube.io/v1/news/everything"
+    params = {
+        "query": query,
+        "language.code": "pt",
+        "per_page": limit,
+        "api_key": APITUBE_KEY,
+    }
+    try:
+        r = requests.get(url, params=params, timeout=20)
+        if r.status_code != 200:
+            return None
+        data = r.json()
+        noticias = data.get("results", data.get("data", []))
+        if not noticias:
+            return 0.0
+        scores = []
+        for n in noticias:
+            sent = (n.get("sentiment") or {}).get("overall") or {}
+            score = sent.get("score")
+            if score is not None:
+                scores.append(float(score))
+        return round(sum(scores) / len(scores), 3) if scores else 0.0
+    except Exception as e:
+        print(f"   ⚠️ Erro sentimento {query}: {e}")
+        return None
+
+
+def obter_sentimento(ativo, forcar=False):
+    if not _sentimento_ok:
+        return 0.0
+    cache = _carregar_cache_sentimento()
+    hoje = datetime.now().strftime("%Y-%m-%d")
+    if not forcar:
+        entrada = cache.get(ativo, {})
+        if entrada.get("data") == hoje:
+            return entrada.get("score", 0.0)
+    query = QUERIES_SENTIMENTO.get(ativo)
+    if not query:
+        return 0.0
+    score = _buscar_sentimento_ativo(query)
+    if score is None:
+        return 0.0
+    cache[ativo] = {"score": score, "data": hoje}
+    _salvar_cache_sentimento(cache)
+    return score
+
+
+def obter_sentimento_todos(forcar=False):
+    if not _sentimento_ok:
+        return {ativo: 0.0 for ativo in QUERIES_SENTIMENTO}
+    cache = _carregar_cache_sentimento()
+    hoje = datetime.now().strftime("%Y-%m-%d")
+    todos = list(QUERIES_SENTIMENTO.keys())
+    cache_ok = all(cache.get(a, {}).get("data") == hoje for a in todos)
+    if cache_ok and not forcar:
+        print("   💾 Usando cache de sentimento do dia")
+        return {a: cache[a]["score"] for a in todos}
+    print("   🌐 Buscando sentimento atualizado...")
+    resultado = {}
+    for ativo in todos:
+        print(f"      📰 {ativo}...")
+        resultado[ativo] = obter_sentimento(ativo, forcar=True)
+        time.sleep(0.5)
+    return resultado
 
 # ==========================================
 # COLETA DE DADOS
@@ -468,7 +581,11 @@ def calcular_indicadores(df, coluna_preco="close"):
     return d
 
 
-def gerar_sinal(row, coluna_preco="close", macro_score=0, lstm_variacao=None, perfil="equilibrado"):
+def gerar_sinal(row, coluna_preco="close", macro_score=0, lstm_variacao=None,
+                perfil="equilibrado", sentimento=0.0):
+    """
+    Motor de sinais com contexto macro, LSTM e sentimento.
+    """
     preco_atual = row[coluna_preco]
     score = 0
     motivos = []
@@ -542,6 +659,13 @@ def gerar_sinal(row, coluna_preco="close", macro_score=0, lstm_variacao=None, pe
         elif lstm_variacao < -2.0:
             score -= 1; motivos.append(f"LSTM {lstm_variacao:.1f}%")
 
+    if sentimento > 0.2:
+        score += 1
+        motivos.append(f"Sentimento +{sentimento:.2f}")
+    elif sentimento < -0.2:
+        score -= 1
+        motivos.append(f"Sentimento {sentimento:.2f}")
+
     if score >= 6:    veredito = "🟢🟢 COMPRA FORTE"
     elif score >= 4:  veredito = "🟢 COMPRAR"
     elif score == 3:  veredito = "🟢 COMPRAR"
@@ -563,7 +687,7 @@ def calcular_alvo_stop(df, perfil="equilibrado"):
     alvo = preco + cfg["mult_alvo"] * atr
     stop = preco - cfg["mult_stop"] * atr
     return preco, alvo, stop, atr
-  
+
 
 # ==========================================
 # LSTM
@@ -689,13 +813,15 @@ def prever_proximo_preco(ativo, df, modelo=None, scaler=None):
 # ==========================================
 # ANÁLISE EM LOTE
 # ==========================================
-def analisar_ativo(nome, df, macro_score=0, lstm_variacao=None, perfil="equilibrado"):
+def analisar_ativo(nome, df, macro_score=0, lstm_variacao=None,
+                   perfil="equilibrado", sentimento=0.0):
     if df is None or df.empty or len(df) < 30:
         return {"Ativo": nome, "Preço": None, "RSI": None,
                 "Score": None, "Veredito": "⚠️ Sem dados", "Motivos": "—",
                 "Macro_Score": macro_score,
                 "LSTM_variacao": lstm_variacao,
-                "LSTM_tendencia": None, "LSTM_confianca": None}
+                "LSTM_tendencia": None, "LSTM_confianca": None,
+                "Sentimento": sentimento}
 
     d = calcular_indicadores(df, coluna_preco="close")
     ultima = d.iloc[-1]
@@ -709,7 +835,8 @@ def analisar_ativo(nome, df, macro_score=0, lstm_variacao=None, perfil="equilibr
     v, s, m = gerar_sinal(ultima, coluna_preco="close",
                           macro_score=macro_ponderado,
                           lstm_variacao=lstm_variacao,
-                          perfil=perfil)
+                          perfil=perfil,
+                          sentimento=sentimento)
 
     return {
         "Ativo":          nome,
@@ -721,11 +848,13 @@ def analisar_ativo(nome, df, macro_score=0, lstm_variacao=None, perfil="equilibr
         "LSTM_variacao":  lstm_variacao,
         "LSTM_tendencia": None,
         "LSTM_confianca": None,
+        "Sentimento":     round(sentimento, 3),
         "Motivos":        m,
     }
 
 
-def _analisar_com_lstm(nome, df, treinar=True, macro_score=0, perfil="equilibrado"):
+def _analisar_com_lstm(nome, df, treinar=True, macro_score=0,
+                       perfil="equilibrado", sentimento=0.0):
     lstm_variacao = None
     lstm_resultado = None
 
@@ -741,7 +870,8 @@ def _analisar_com_lstm(nome, df, treinar=True, macro_score=0, perfil="equilibrad
             print(f"   ⚠️ LSTM falhou para {nome}: {e}")
 
     resultado = analisar_ativo(nome, df, macro_score=macro_score,
-                                lstm_variacao=lstm_variacao, perfil=perfil)
+                                lstm_variacao=lstm_variacao, perfil=perfil,
+                                sentimento=sentimento)
 
     if lstm_resultado:
         resultado["LSTM_tendencia"] = lstm_resultado["tendencia"]
@@ -762,6 +892,9 @@ def rodar_watchlist_completa(treinar_lstm_flag=False, perfil=None):
     resumo_macro = " | ".join(contexto_macro["resumo"]) if contexto_macro["resumo"] else "neutro"
     print(f"   🌍 Macro score: {macro_score:+d} | {resumo_macro}")
 
+    print("   📰 Coletando sentimento de notícias...")
+    sentimentos = obter_sentimento_todos()
+
     resultados = []
     dfs = {}
 
@@ -769,23 +902,26 @@ def rodar_watchlist_completa(treinar_lstm_flag=False, perfil=None):
         print(f"   🔎 {nome}")
         df = buscar_cripto(nome, periodo="1mo", intervalo="1h")
         dfs[nome] = df
+        sent = sentimentos.get(nome, 0.0)
         resultados.append(_analisar_com_lstm(nome, df,
                                               treinar=treinar_lstm_flag,
                                               macro_score=macro_score,
-                                              perfil=perfil))
+                                              perfil=perfil,
+                                              sentimento=sent))
         time.sleep(0.3)
 
     for nome, ticker in ACOES_WATCHLIST.items():
         print(f"   🔎 {nome}")
         df = buscar_acao(ticker, periodo="2y", intervalo="1d")
         dfs[nome] = df
+        sent = sentimentos.get(nome, 0.0)
         resultados.append(_analisar_com_lstm(nome, df,
                                               treinar=treinar_lstm_flag,
                                               macro_score=macro_score,
-                                              perfil=perfil))
+                                              perfil=perfil,
+                                              sentimento=sent))
 
     return pd.DataFrame(resultados), dfs
-  
 
 # ==========================================
 # TELEGRAM
@@ -807,8 +943,9 @@ def enviar_telegram(mensagem):
         return False
 
 
-def alerta_compra(ativo, preco, alvo, stop, veredito, lstm_pct, lstm_tend, perfil):
+def alerta_compra(ativo, preco, alvo, stop, veredito, lstm_pct, lstm_tend, perfil, sentimento=0.0):
     lstm_str = f"{lstm_pct:+.2f}% {lstm_tend}" if lstm_pct is not None else "n/a"
+    sent_str = f"{sentimento:+.3f}" if sentimento != 0 else "neutro"
     msg = (
         f"🟢 *SINAL DE COMPRA* 🟢\n\n"
         f"📌 Ativo: `{ativo}`\n"
@@ -817,6 +954,7 @@ def alerta_compra(ativo, preco, alvo, stop, veredito, lstm_pct, lstm_tend, perfi
         f"🛑 Stop inicial: {stop:,.2f}\n"
         f"📊 Veredito: {veredito}\n"
         f"🧠 LSTM: {lstm_str}\n"
+        f"📰 Sentimento: {sent_str}\n"
         f"⚙️ Perfil: {perfil}\n\n"
         f"⏰ {datetime.now().strftime('%d/%m/%Y %H:%M')}"
     )
@@ -939,6 +1077,7 @@ def verificar_posicoes_abertas(tabela, dfs, perfil=None):
 
     return fechamentos
 
+
 def abrir_novas_posicoes(tabela, dfs, perfil=None):
     if perfil is None:
         perfil = PERFIL_ATIVO
@@ -972,16 +1111,17 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
 
         lstm_pct = row.get("LSTM_variacao")
         lstm_tend = row.get("LSTM_tendencia") or ""
-        alerta_compra(ativo, preco, alvo, stop, veredito, lstm_pct, lstm_tend, perfil)
+        sent = row.get("Sentimento", 0.0) or 0.0
+        alerta_compra(ativo, preco, alvo, stop, veredito, lstm_pct, lstm_tend, perfil, sent)
         novas.append(ativo)
 
     return novas
-  
+
+
 # ==========================================
 # RELATÓRIO SEMANAL
 # ==========================================
 def gerar_relatorio_semanal():
-    """Gera relatório dos últimos 7 dias e envia via Telegram."""
     print("=" * 75)
     print("📊 RELATÓRIO SEMANAL — ROBÔ TRADER")
     print(f"📅 {datetime.now().strftime('%d/%m/%Y %H:%M')}")
@@ -1076,9 +1216,9 @@ def main():
     print("🤖 ROBÔ TRADER — CICLO GITHUB ACTIONS")
     print(f"📅 {datetime.now().strftime('%d/%m/%Y %H:%M')}")
     print(f"⚙️ Perfil: {PERFIL_ATIVO} | Modo: {'TREINO' if TREINAR_LSTM else 'CARREGAR'}")
+    print(f"📰 Sentimento: {'ATIVO' if _sentimento_ok else 'DESATIVADO'}")
     print("=" * 75)
-     
-  
+
     print("\n🧠 Analisando ativos...\n")
     tabela, dfs = rodar_watchlist_completa(treinar_lstm_flag=TREINAR_LSTM,
                                             perfil=PERFIL_ATIVO)
@@ -1095,7 +1235,7 @@ def main():
     print("📊 SINAIS POR ATIVO")
     print("=" * 75)
     cols = ["Ativo", "Preço", "RSI", "Score", "Veredito",
-            "LSTM_variacao", "LSTM_tendencia", "Macro_Score"]
+            "LSTM_variacao", "LSTM_tendencia", "Macro_Score", "Sentimento"]
     cols = [c for c in cols if c in tabela.columns]
     print(tabela[cols].to_string(index=False))
 
