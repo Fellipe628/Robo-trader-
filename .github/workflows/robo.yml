@@ -9,11 +9,15 @@ on:
     - cron: '*/15 13-19 * * *'  # 10h-16h45 BRT (PICO)
     - cron: '0 20-23 * * *'     # 17h-20h BRT
     - cron: '0 0-1 * * *'       # 21h-22h BRT
-    - cron: '0 12 * * 6'
+    - cron: '0 12 * * 6'        # 09h BRT sábado — RELATÓRIO SEMANAL
   workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: robo-trader
+  cancel-in-progress: false
 
 jobs:
   robo:
@@ -71,4 +75,5 @@ jobs:
           git config user.email "bot@robo-trader.local"
           git add -A
           git commit -m "🤖 Atualiza dados [skip ci]" || echo "Sem mudanças"
+          git pull --rebase origin main
           git push
