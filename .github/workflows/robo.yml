@@ -62,6 +62,7 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TREINAR_LSTM: ${{ steps.modo.outputs.treinar }}
           MODO_RELATORIO: ${{ steps.modo.outputs.relatorio }}
+          APITUBE_KEY: ${{ secrets.APITUBE_KEY }}
         run: python robo.py
 
       - name: Salvar dados atualizados
