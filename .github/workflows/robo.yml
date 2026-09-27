@@ -42,10 +42,17 @@ jobs:
       - name: Instalar dependências
         run: pip install -r requirements.txt
 
-      - name: Definir modo (treinar ou usar LSTM salvo)
+      - name: Definir modo (treinar / relatório / normal)
         id: modo
         run: |
-          if [[ "${{ github.event.schedule }}" == "0 6 * * 1,4" ]]; then
+          # Detecta dia e hora UTC usando date (mais confiável que github.event.schedule)
+          DIA_SEMANA=$(date -u +%u)   # 1=seg, 4=qui, 6=sáb
+          HORA=$(date -u +%H)
+
+          echo "📅 Dia da semana (UTC): $DIA_SEMANA | Hora: $HORA"
+
+          # --- Modo TREINO: segunda ou quinta, 06h UTC (03h BRT) ---
+          if { [ "$DIA_SEMANA" = "1" ] || [ "$DIA_SEMANA" = "4" ]; } && [ "$HORA" = "06" ]; then
             echo "treinar=true" >> $GITHUB_OUTPUT
             echo "🎓 Modo TREINO ativado"
           else
@@ -53,7 +60,8 @@ jobs:
             echo "💾 Modo CARREGAR LSTM salvo"
           fi
 
-          if [[ "${{ github.event.schedule }}" == "0 12 * * 6" ]]; then
+          # --- Modo RELATÓRIO: sábado, 12h UTC (09h BRT) ---
+          if [ "$DIA_SEMANA" = "6" ] && [ "$HORA" = "12" ]; then
             echo "relatorio=true" >> $GITHUB_OUTPUT
             echo "📊 Modo RELATÓRIO SEMANAL"
           else
