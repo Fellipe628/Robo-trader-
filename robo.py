@@ -387,11 +387,15 @@ def _buscar_sentimento_ativo(query, limit=10):
     }
     try:
         r = requests.get(url, params=params, timeout=20)
+        print(f"      🔍 [{query}] HTTP {r.status_code}")
         if r.status_code != 200:
+            print(f"      ⚠️ Resposta: {r.text[:200]}")
             return None
         data = r.json()
         noticias = data.get("results", data.get("data", []))
+        print(f"      📊 [{query}] {len(noticias)} notícias")
         if not noticias:
+            print(f"      ⚠️ Sem notícias para {query}")
             return 0.0
         scores = []
         for n in noticias:
@@ -399,6 +403,7 @@ def _buscar_sentimento_ativo(query, limit=10):
             score = sent.get("score")
             if score is not None:
                 scores.append(float(score))
+        print(f"      ✅ [{query}] {len(scores)} scores coletados")
         return round(sum(scores) / len(scores), 3) if scores else 0.0
     except Exception as e:
         print(f"   ⚠️ Erro sentimento {query}: {e}")
