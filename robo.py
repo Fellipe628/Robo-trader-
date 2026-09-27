@@ -65,8 +65,8 @@ QUERIES_SENTIMENTO = {
     "BTC":   "Bitcoin",
     "ETH":   "Ethereum",
     "SOL":   "Solana",
-    "BNB":   "Binance Coin",
-    "ADA":   "Cardano",
+    "BNB":   "BNB cripto",
+    "ADA":   "Cardano cripto",
 }
 
 # --- Parâmetros de trading ---
