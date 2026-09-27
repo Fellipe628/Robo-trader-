@@ -404,7 +404,6 @@ def _buscar_sentimento_ativo(query, limit=10):
         print(f"   ⚠️ Erro sentimento {query}: {e}")
         return None
 
-
 def obter_sentimento(ativo, forcar=False):
     if not _sentimento_ok:
         return 0.0
