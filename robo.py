@@ -1,7 +1,7 @@
 # ==========================================
-# ROBÔ TRADER — GitHub Actions (v3.2)
-# LSTM + Macro + Trailing + Sentimento
-# Bloco 2: precisão dinâmica + limite de posições
+# ROBÔ TRADER — GitHub Actions (v4)
+# LSTM peso real + Circuit breaker + Let winners run
+# Confirmação de stop + Cooldown após alvo
 # ==========================================
 import os
 import time
@@ -17,7 +17,15 @@ ARQUIVO       = f"{PASTA}/portfolio.csv"
 ARQUIVO_LOG   = f"{PASTA}/historico_sinais.csv"
 ARQUIVO_COOLDOWN = f"{PASTA}/cooldowns.csv"
 ARQUIVO_SENTIMENTO = f"{PASTA}/sentimento_cache.json"
+ARQUIVO_CIRCUIT = f"{PASTA}/circuit_breaker.json"
+ARQUIVO_STOPS_PEND = f"{PASTA}/stops_pendentes.csv"
 COOLDOWN_HORAS   = 6
+
+# --- Circuit Breaker ---
+STOPS_24H_CAUTELOSO    = 2
+STOPS_24H_DEFENSIVO    = 3
+PAUSA_DEFENSIVO_HORAS  = 12
+JANELA_STOPS_HORAS     = 24
 
 # --- Telegram ---
 TELEGRAM_TOKEN   = os.environ.get("TELEGRAM_TOKEN")
@@ -28,7 +36,7 @@ _tg_ok = bool(TELEGRAM_TOKEN and TELEGRAM_CHAT_ID)
 APITUBE_KEY = os.environ.get("APITUBE_KEY")
 _sentimento_ok = bool(APITUBE_KEY)
 
-# --- Modo de execução (vem do workflow) ---
+# --- Modo de execução ---
 TREINAR_LSTM = os.environ.get("TREINAR_LSTM", "false").lower() == "true"
 
 # --- Watchlists ---
@@ -55,7 +63,6 @@ MACRO_TICKERS = {
     "Ibov":   "^BVSP",
 }
 
-# Queries de busca de notícias (com acentos corretos)
 QUERIES_SENTIMENTO = {
     "PETR4": "Petrobras",
     "VALE3": "Vale",
@@ -71,7 +78,7 @@ QUERIES_SENTIMENTO = {
 
 # --- Parâmetros de trading ---
 VALOR_POR_TRADE = 1000
-MAX_POSICOES    = 5      # limite de posições abertas simultâneas
+MAX_POSICOES    = 5
 
 # --- Perfis ---
 PERFIS = {
@@ -121,11 +128,6 @@ os.makedirs(PASTA_MODELOS, exist_ok=True)
 # UTILITÁRIOS
 # ==========================================
 def _precisao(preco):
-    """Retorna o número de casas decimais adequado para o preço.
-    - Preço >= 10: 2 casas
-    - Preço entre 1 e 10: 3 casas
-    - Preço < 1: 4 casas
-    """
     if preco >= 10:
         return 2
     elif preco >= 1:
@@ -188,6 +190,7 @@ def registrar_compra(ativo, tipo, preco, qtd, alvo, stop, perfil="equilibrado"):
         print(f"⚠️ {ativo} já está aberto.")
         return None
     novo_id = int(df["ID"].max() + 1) if not df.empty else 1
+    casas = _precisao(preco)
     nova = pd.DataFrame([{
         "ID": novo_id, "Ativo": ativo, "Tipo": tipo,
         "Data_Compra": datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -200,7 +203,7 @@ def registrar_compra(ativo, tipo, preco, qtd, alvo, stop, perfil="equilibrado"):
     }])
     df = pd.concat([df, nova], ignore_index=True)
     salvar_portfolio(df)
-    print(f"✅ Compra: {ativo} @ {preco:.{_precisao(preco)}f} | Perfil: {perfil}")
+    print(f"✅ Compra: {ativo} @ {preco:.{casas}f} | Perfil: {perfil}")
     return nova
 
 
@@ -234,6 +237,8 @@ def registrar_venda(ativo, preco_venda, motivo="", parcial=False, pct_parcial=0.
         qtd_restante_raw = df.at[idx, "Qtd"]
     qtd_restante = float(qtd_restante_raw) if pd.notna(qtd_restante_raw) else 0
 
+    casas = _precisao(preco_venda)
+
     if parcial:
         qtd_vendida = qtd_restante * pct_parcial
         qtd_nova = qtd_restante - qtd_vendida
@@ -241,7 +246,7 @@ def registrar_venda(ativo, preco_venda, motivo="", parcial=False, pct_parcial=0.
         lucro_pct = ((preco_venda / pc) - 1) * 100
         df.at[idx, "Qtd_Restante"] = round(qtd_nova, 6)
         salvar_portfolio(df)
-        print(f"✅ Venda PARCIAL: {ativo} @ {preco_venda:.{_precisao(preco_venda)}f} ({int(pct_parcial*100)}%) | "
+        print(f"✅ Venda PARCIAL: {ativo} @ {preco_venda:.{casas}f} ({int(pct_parcial*100)}%) | "
               f"Lucro: R$ {lucro_rs:.2f} ({lucro_pct:+.2f}%)")
         return {"ativo": ativo, "preco_compra": pc, "preco_venda": preco_venda,
                 "lucro_rs": lucro_rs, "lucro_pct": lucro_pct,
@@ -257,7 +262,7 @@ def registrar_venda(ativo, preco_venda, motivo="", parcial=False, pct_parcial=0.
         df.at[idx, "Status"]       = "FECHADO"
         df.at[idx, "Motivo"]       = motivo
         salvar_portfolio(df)
-        print(f"✅ Venda TOTAL: {ativo} @ {preco_venda:.{_precisao(preco_venda)}f} | "
+        print(f"✅ Venda TOTAL: {ativo} @ {preco_venda:.{casas}f} | "
               f"Lucro: R$ {lucro_rs:.2f} ({lucro_pct:+.2f}%) | {motivo}")
         return {"ativo": ativo, "preco_compra": pc, "preco_venda": preco_venda,
                 "lucro_rs": lucro_rs, "lucro_pct": lucro_pct,
@@ -315,7 +320,7 @@ def salvar_analise(tabela):
 
 
 # ==========================================
-# COOLDOWN (após stop)
+# COOLDOWN (após stop OU alvo)
 # ==========================================
 def _carregar_cooldowns():
     if os.path.exists(ARQUIVO_COOLDOWN):
@@ -355,6 +360,134 @@ def em_cooldown(ativo):
     if pd.isna(ate):
         return False
     return datetime.now() < ate
+
+
+# ==========================================
+# CIRCUIT BREAKER (estado de risco)
+# ==========================================
+def _carregar_circuit_breaker():
+    if os.path.exists(ARQUIVO_CIRCUIT):
+        try:
+            with open(ARQUIVO_CIRCUIT, "r") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {
+        "stops_24h": 0,
+        "stops_consecutivos": 0,
+        "ultimo_stop": None,
+        "estado": "normal",
+        "atualizado_em": datetime.now().isoformat(),
+    }
+
+
+def _salvar_circuit_breaker(cb):
+    cb["atualizado_em"] = datetime.now().isoformat()
+    with open(ARQUIVO_CIRCUIT, "w") as f:
+        json.dump(cb, f, indent=2)
+
+
+def registrar_stop_no_circuit():
+    cb = _carregar_circuit_breaker()
+    agora = datetime.now()
+
+    if cb["ultimo_stop"]:
+        try:
+            ultimo = datetime.fromisoformat(cb["ultimo_stop"])
+            if (agora - ultimo).total_seconds() > JANELA_STOPS_HORAS * 3600:
+                cb["stops_24h"] = 0
+        except Exception:
+            cb["stops_24h"] = 0
+
+    cb["stops_24h"] += 1
+    cb["stops_consecutivos"] += 1
+    cb["ultimo_stop"] = agora.isoformat()
+
+    if cb["stops_24h"] >= STOPS_24H_DEFENSIVO:
+        cb["estado"] = "defensivo"
+    elif cb["stops_24h"] >= STOPS_24H_CAUTELOSO:
+        cb["estado"] = "cauteloso"
+    else:
+        cb["estado"] = "normal"
+
+    _salvar_circuit_breaker(cb)
+    print(f"   ⚠️ Circuit breaker: {cb['stops_24h']} stops em 24h → estado {cb['estado'].upper()}")
+    return cb
+
+
+def resetar_stops_consecutivos():
+    cb = _carregar_circuit_breaker()
+    cb["stops_consecutivos"] = 0
+    _salvar_circuit_breaker(cb)
+
+
+def verificar_circuit_breaker():
+    """Retorna (estado, score_min_extra, tamanho_pct, pausado)."""
+    cb = _carregar_circuit_breaker()
+    agora = datetime.now()
+
+    if cb["ultimo_stop"]:
+        try:
+            ultimo = datetime.fromisoformat(cb["ultimo_stop"])
+            horas = (agora - ultimo).total_seconds() / 3600
+
+            if horas > JANELA_STOPS_HORAS:
+                cb["stops_24h"] = 0
+                cb["estado"] = "normal"
+                _salvar_circuit_breaker(cb)
+
+            if cb["estado"] == "defensivo" and horas > PAUSA_DEFENSIVO_HORAS:
+                cb["estado"] = "cauteloso"
+                _salvar_circuit_breaker(cb)
+        except Exception:
+            pass
+
+    estado = cb["estado"]
+    if estado == "defensivo":
+        return estado, 2, 0.5, True
+    elif estado == "cauteloso":
+        return estado, 1, 0.75, False
+    else:
+        return estado, 0, 1.0, False
+
+
+# ==========================================
+# STOPS PENDENTES (confirmação)
+# ==========================================
+def _carregar_stops_pendentes():
+    if os.path.exists(ARQUIVO_STOPS_PEND):
+        try:
+            return pd.read_csv(ARQUIVO_STOPS_PEND)
+        except Exception:
+            pass
+    return pd.DataFrame(columns=["Ativo", "Preco_Stop", "Data_Pendencia"])
+
+
+def _salvar_stops_pendentes(df):
+    df.to_csv(ARQUIVO_STOPS_PEND, index=False)
+
+
+def registrar_stop_pendente(ativo, preco):
+    df = _carregar_stops_pendentes()
+    df = df[df["Ativo"] != ativo]
+    nova = pd.DataFrame([{
+        "Ativo": ativo,
+        "Preco_Stop": preco,
+        "Data_Pendencia": datetime.now().isoformat(),
+    }])
+    df = pd.concat([df, nova], ignore_index=True)
+    _salvar_stops_pendentes(df)
+
+
+def stop_esta_pendente(ativo):
+    df = _carregar_stops_pendentes()
+    return not df[df["Ativo"] == ativo].empty
+
+
+def remover_stop_pendente(ativo):
+    df = _carregar_stops_pendentes()
+    df = df[df["Ativo"] != ativo]
+    _salvar_stops_pendentes(df)
 
 
 # ==========================================
@@ -403,6 +536,7 @@ def _buscar_sentimento_ativo(query, limit=10):
     except Exception as e:
         print(f"   ⚠️ Erro sentimento {query}: {e}")
         return None
+
 
 def obter_sentimento(ativo, forcar=False):
     if not _sentimento_ok:
@@ -607,10 +741,14 @@ def calcular_indicadores(df, coluna_preco="close"):
 
 def gerar_sinal(row, coluna_preco="close", macro_score=0, lstm_variacao=None,
                 perfil="equilibrado", sentimento=0.0):
-    """Motor de sinais com contexto macro, LSTM e sentimento."""
+    """Motor de sinais com LSTM peso real + macro + sentimento."""
     preco_atual = row[coluna_preco]
     score = 0
     motivos = []
+
+    # --- BLOQUEIO por LSTM muito pessimista ---
+    if lstm_variacao is not None and lstm_variacao < -2.0:
+        return "🚫 BLOQUEADO", 0, f"LSTM {lstm_variacao:.1f}% (queda forte)"
 
     em_alta_forte = (
         pd.notna(row["SMA_50"]) and pd.notna(row["SMA_50_slope"]) and
@@ -675,11 +813,12 @@ def gerar_sinal(row, coluna_preco="close", macro_score=0, lstm_variacao=None,
         score += macro_score
         motivos.append(f"Macro {macro_score:+d}")
 
+    # --- LSTM com PESO REAL (±2 em vez de ±1) ---
     if lstm_variacao is not None:
-        if lstm_variacao > 2.0:
-            score += 1; motivos.append(f"LSTM +{lstm_variacao:.1f}%")
-        elif lstm_variacao < -2.0:
-            score -= 1; motivos.append(f"LSTM {lstm_variacao:.1f}%")
+        if lstm_variacao > 1.0:
+            score += 2; motivos.append(f"LSTM +{lstm_variacao:.1f}%")
+        elif lstm_variacao < -1.0:
+            score -= 2; motivos.append(f"LSTM {lstm_variacao:.1f}%")
 
     if sentimento > 0.2:
         score += 1
@@ -688,11 +827,11 @@ def gerar_sinal(row, coluna_preco="close", macro_score=0, lstm_variacao=None,
         score -= 1
         motivos.append(f"Sentimento {sentimento:.2f}")
 
-    if score >= 6:    veredito = "🟢🟢 COMPRA FORTE"
+    if score >= 7:    veredito = "🟢🟢 COMPRA FORTE"
     elif score >= 4:  veredito = "🟢 COMPRAR"
     elif score == 3:  veredito = "🟢 COMPRAR"
     elif score == 2 and em_alta_forte: veredito = "🟢 COMPRAR (conf.)"
-    elif score <= -6: veredito = "🔴🔴 VENDA FORTE"
+    elif score <= -7: veredito = "🔴🔴 VENDA FORTE"
     elif score <= -4: veredito = "🔴 VENDER"
     elif score <= -3: veredito = "🔴 VENDER"
     else:             veredito = "🟡 AGUARDAR"
@@ -967,10 +1106,11 @@ def enviar_telegram(mensagem):
         return False
 
 
-def alerta_compra(ativo, preco, alvo, stop, veredito, lstm_pct, lstm_tend, perfil, sentimento=0.0):
+def alerta_compra(ativo, preco, alvo, stop, veredito, lstm_pct, lstm_tend, perfil, sentimento=0.0, estado_cb="normal"):
     lstm_str = f"{lstm_pct:+.2f}% {lstm_tend}" if lstm_pct is not None else "n/a"
     sent_str = f"{sentimento:+.3f}" if sentimento != 0 else "neutro"
     casas = _precisao(preco)
+    cb_emoji = {"normal": "🟢", "cauteloso": "🟡", "defensivo": "🔴"}.get(estado_cb, "⚪")
     msg = (
         f"🟢 *SINAL DE COMPRA* 🟢\n\n"
         f"📌 Ativo: `{ativo}`\n"
@@ -980,7 +1120,7 @@ def alerta_compra(ativo, preco, alvo, stop, veredito, lstm_pct, lstm_tend, perfi
         f"📊 Veredito: {veredito}\n"
         f"🧠 LSTM: {lstm_str}\n"
         f"📰 Sentimento: {sent_str}\n"
-        f"⚙️ Perfil: {perfil}\n\n"
+        f"⚙️ Perfil: {perfil} | {cb_emoji} CB: {estado_cb}\n\n"
         f"⏰ {datetime.now().strftime('%d/%m/%Y %H:%M')}"
     )
     enviar_telegram(msg)
@@ -1015,6 +1155,35 @@ def alerta_trailing(ativo, stop_antigo, stop_novo, preco_atual):
     enviar_telegram(msg)
 
 
+def alerta_let_winner(ativo, alvo, lstm_pct):
+    casas = _precisao(alvo)
+    msg = (
+        f"🎯 *ALVO ATINGIDO — POSIÇÃO MANTIDA*\n\n"
+        f"📌 Ativo: `{ativo}`\n"
+        f"🎯 Alvo batido: {alvo:,.{casas}f}\n"
+        f"🛑 Stop movido para o alvo (lucro garantido)\n"
+        f"🧠 LSTM prevê: +{lstm_pct:.2f}% 📈\n"
+        f"📊 SMA9 > SMA21 (tendência de alta)\n\n"
+        f"📈 Trailing continua ativo. Posição segue aberta.\n"
+        f"⏰ {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+    )
+    enviar_telegram(msg)
+
+
+def alerta_circuit_breaker(estado, stops_24h):
+    emoji = {"cauteloso": "🟡", "defensivo": "🔴"}.get(estado, "⚪")
+    msg = (
+        f"{emoji} *CIRCUIT BREAKER — {estado.upper()}*\n\n"
+        f"⚠️ {stops_24h} stops nas últimas 24h\n"
+        f"📊 Score mínimo aumentado\n"
+        f"📉 Tamanho das posições reduzido\n"
+    )
+    if estado == "defensivo":
+        msg += f"⏸️ Novas entradas pausadas por {PAUSA_DEFENSIVO_HORAS}h\n"
+    msg += f"\n⏰ {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+    enviar_telegram(msg)
+
+
 # ==========================================
 # AUTO-TRADING
 # ==========================================
@@ -1036,6 +1205,7 @@ def verificar_posicoes_abertas(tabela, dfs, perfil=None):
         preco_atual = float(df["close"].iloc[-1])
         preco_compra = float(pos["Preco_Compra"])
         alvo = float(pos["Alvo"])
+        casas = _precisao(preco_atual)
 
         stop_atual_raw = pos.get("Stop_Atual")
         if pd.isna(stop_atual_raw):
@@ -1049,10 +1219,10 @@ def verificar_posicoes_abertas(tabela, dfs, perfil=None):
             qtd_restante_raw = pos.get("Qtd")
         qtd_restante = float(qtd_restante_raw) if pd.notna(qtd_restante_raw) else 0
 
+        # --- Trailing normal ---
         lucro_pct = (preco_atual / preco_compra - 1) * 100
         if lucro_pct >= cfg["trailing_ativa_em"]:
             novo_stop = preco_atual * (1 - cfg["distancia_trailing"] / 100)
-            casas = _precisao(preco_atual)
             novo_stop_arred = round(novo_stop, casas)
             stop_atual_arred = round(stop_atual, casas)
             if novo_stop_arred > stop_atual_arred:
@@ -1060,41 +1230,67 @@ def verificar_posicoes_abertas(tabela, dfs, perfil=None):
                 alerta_trailing(ativo, stop_atual_arred, novo_stop_arred, preco_atual)
                 stop_atual = novo_stop_arred
 
+        # --- LET WINNERS RUN: bateu alvo ---
         if preco_atual >= alvo:
-            if cfg["alvo_parcial"] and qtd_restante > 0:
-                res = registrar_venda(ativo, preco_atual,
-                                       motivo="🎯 Alvo (parcial)",
-                                       parcial=True, pct_parcial=0.5)
-                if res:
-                    alerta_venda(res["ativo"], res["preco_compra"], res["preco_venda"],
-                                 res["lucro_rs"], res["lucro_pct"],
-                                 "🎯 Alvo 50%", parcial=True)
-                    casas = _precisao(preco_compra)
-                    novo_alvo = alvo + (alvo - preco_compra) * 0.5
-                    df_port = carregar_portfolio()
-                    mask = (df_port["Ativo"] == ativo) & (df_port["Status"] == "ABERTO")
-                    if not df_port[mask].empty:
-                        idx2 = df_port[mask].index[0]
-                        df_port.at[idx2, "Alvo"] = round(novo_alvo, casas)
-                        salvar_portfolio(df_port)
+            linha = tabela[tabela["Ativo"] == ativo]
+            lstm_pct = None
+            sma_alta = False
+            if not linha.empty:
+                lstm_pct = linha.iloc[0].get("LSTM_variacao")
+                d = calcular_indicadores(df, coluna_preco="close")
+                ultima = d.iloc[-1]
+                if pd.notna(ultima["SMA_9"]) and pd.notna(ultima["SMA_21"]):
+                    sma_alta = ultima["SMA_9"] > ultima["SMA_21"]
+
+            lstm_positivo = (lstm_pct is not None and lstm_pct > 0)
+
+            if lstm_positivo and sma_alta and qtd_restante > 0:
+                # Continua posição: move stop para o alvo
+                df_port = carregar_portfolio()
+                mask = (df_port["Ativo"] == ativo) & (df_port["Status"] == "ABERTO")
+                if not df_port[mask].empty:
+                    idx2 = df_port[mask].index[0]
+                    df_port.at[idx2, "Stop_Atual"] = round(alvo, casas)
+                    salvar_portfolio(df_port)
+                alerta_let_winner(ativo, alvo, lstm_pct)
+                stop_atual = round(alvo, casas)
             else:
+                # Vende no alvo + cooldown
                 res = registrar_venda(ativo, preco_atual, motivo="🎯 Alvo")
                 if res:
                     alerta_venda(res["ativo"], res["preco_compra"], res["preco_venda"],
                                  res["lucro_rs"], res["lucro_pct"], "🎯 Alvo")
+                    resetar_stops_consecutivos()
+                    registrar_cooldown(ativo, motivo="Alvo")
                 fechamentos.append(ativo)
                 continue
 
+        # --- STOP com confirmação de 1 ciclo ---
         if preco_atual <= stop_atual:
-            motivo = "🛑 Stop" if stop_atual == float(pos["Stop_Inicial"] or 0) else "📉 Trailing Stop"
-            res = registrar_venda(ativo, preco_atual, motivo=motivo)
-            if res:
-                alerta_venda(res["ativo"], res["preco_compra"], res["preco_venda"],
-                             res["lucro_rs"], res["lucro_pct"], motivo)
-                registrar_cooldown(ativo, motivo="Stop")
-            fechamentos.append(ativo)
-            continue
+            if stop_esta_pendente(ativo):
+                # 2º acionamento: vende
+                motivo = "🛑 Stop" if stop_atual == float(pos["Stop_Inicial"] or 0) else "📉 Trailing Stop"
+                res = registrar_venda(ativo, preco_atual, motivo=motivo)
+                if res:
+                    alerta_venda(res["ativo"], res["preco_compra"], res["preco_venda"],
+                                 res["lucro_rs"], res["lucro_pct"], motivo)
+                    registrar_cooldown(ativo, motivo="Stop")
+                    registrar_stop_no_circuit()
+                remover_stop_pendente(ativo)
+                fechamentos.append(ativo)
+                continue
+            else:
+                # 1º acionamento: registra pendente, aguarda
+                registrar_stop_pendente(ativo, preco_atual)
+                print(f"   ⏳ {ativo} stop acionado — aguardando confirmação no próximo ciclo")
+                continue
+        else:
+            # Preço recuperou: cancela pendência
+            if stop_esta_pendente(ativo):
+                remover_stop_pendente(ativo)
+                print(f"   ✅ {ativo} recuperou — stop pendente cancelado")
 
+        # --- Reversão técnica ---
         linha = tabela[tabela["Ativo"] == ativo]
         if not linha.empty and "VENDER" in str(linha.iloc[0]["Veredito"]):
             res = registrar_venda(ativo, preco_atual, motivo="🔴 Reversão técnica")
@@ -1102,6 +1298,7 @@ def verificar_posicoes_abertas(tabela, dfs, perfil=None):
                 alerta_venda(res["ativo"], res["preco_compra"], res["preco_venda"],
                              res["lucro_rs"], res["lucro_pct"], "🔴 Reversão")
                 registrar_cooldown(ativo, motivo="Reversão")
+                registrar_stop_no_circuit()
             fechamentos.append(ativo)
 
     return fechamentos
@@ -1111,7 +1308,14 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
     if perfil is None:
         perfil = PERFIL_ATIVO
 
-    # Verifica limite de posições no início
+    # --- Circuit breaker ---
+    estado_cb, score_extra, tamanho_pct, pausado = verificar_circuit_breaker()
+    print(f"   🔌 Circuit breaker: {estado_cb.upper()} | score_extra=+{score_extra} | tamanho={int(tamanho_pct*100)}%")
+
+    if pausado:
+        print(f"   ⏸️ PAUSADO (circuit breaker defensivo). Sem novas entradas.")
+        return []
+
     portfolio = carregar_portfolio()
     posicoes_abertas = len(portfolio[portfolio["Status"] == "ABERTO"])
     if posicoes_abertas >= MAX_POSICOES:
@@ -1119,11 +1323,19 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
               f"({posicoes_abertas} abertas). Pulando novas aberturas.")
         return []
 
+    score_minimo = 3 + score_extra
+
     novas = []
     for _, row in tabela.iterrows():
         ativo = row["Ativo"]
         veredito = str(row["Veredito"])
         if "COMPRA" not in veredito:
+            continue
+
+        # Aplica score mínimo aumentado
+        score_ativo = row.get("Score")
+        if score_ativo is not None and score_ativo < score_minimo:
+            print(f"   ⚠️ {ativo} score {score_ativo} < mínimo {score_minimo} (CB {estado_cb})")
             continue
 
         if em_cooldown(ativo):
@@ -1135,7 +1347,6 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
                           (portfolio["Status"] == "ABERTO")].empty:
             continue
 
-        # Verifica o limite a cada nova abertura
         portfolio = carregar_portfolio()
         if len(portfolio[portfolio["Status"] == "ABERTO"]) >= MAX_POSICOES:
             print(f"   ⛔ Limite de {MAX_POSICOES} posições atingido no meio do ciclo.")
@@ -1147,17 +1358,20 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
 
         preco, alvo, stop, atr = calcular_alvo_stop(df, perfil=perfil)
         casas = _precisao(preco)
-        qtd = round(VALOR_POR_TRADE / preco, 6)
+        valor_trade = VALOR_POR_TRADE * tamanho_pct
+        qtd = round(valor_trade / preco, 6)
         tipo = "Cripto" if ativo in CRIPTO_WATCHLIST else "Ação"
         print(f"   🟢 ABRINDO {ativo} @ {preco:.{casas}f} | "
-              f"Alvo {alvo:.{casas}f} | Stop {stop:.{casas}f} | {perfil}")
+              f"Alvo {alvo:.{casas}f} | Stop {stop:.{casas}f} | "
+              f"Tamanho {int(tamanho_pct*100)}% | {perfil}")
         registrar_compra(ativo, tipo, round(preco, casas), qtd,
                          round(alvo, casas), round(stop, casas), perfil=perfil)
 
         lstm_pct = row.get("LSTM_variacao")
         lstm_tend = row.get("LSTM_tendencia") or ""
         sent = row.get("Sentimento", 0.0) or 0.0
-        alerta_compra(ativo, preco, alvo, stop, veredito, lstm_pct, lstm_tend, perfil, sent)
+        alerta_compra(ativo, preco, alvo, stop, veredito, lstm_pct, lstm_tend,
+                      perfil, sent, estado_cb)
         novas.append(ativo)
 
     return novas
@@ -1262,6 +1476,9 @@ def main():
     print(f"📅 {datetime.now().strftime('%d/%m/%Y %H:%M')}")
     print(f"⚙️ Perfil: {PERFIL_ATIVO} | Modo: {'TREINO' if TREINAR_LSTM else 'CARREGAR'}")
     print(f"📰 Sentimento: {'ATIVO' if _sentimento_ok else 'DESATIVADO'}")
+
+    estado_cb, _, _, _ = verificar_circuit_breaker()
+    print(f"🔌 Circuit breaker: {estado_cb.upper()}")
     print("=" * 75)
 
     print("\n🧠 Analisando ativos...\n")
