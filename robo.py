@@ -1,7 +1,7 @@
 # ==========================================
-# ROBÔ TRADER — GitHub Actions (v3.1)
+# ROBÔ TRADER — GitHub Actions (v3.2)
 # LSTM + Macro + Trailing + Sentimento
-# Fix: coluna Motivo no portfólio
+# Bloco 2: precisão dinâmica + limite de posições
 # ==========================================
 import os
 import time
@@ -71,6 +71,7 @@ QUERIES_SENTIMENTO = {
 
 # --- Parâmetros de trading ---
 VALOR_POR_TRADE = 1000
+MAX_POSICOES    = 5      # limite de posições abertas simultâneas
 
 # --- Perfis ---
 PERFIS = {
@@ -114,6 +115,23 @@ HEADERS = {
 }
 
 os.makedirs(PASTA_MODELOS, exist_ok=True)
+
+
+# ==========================================
+# UTILITÁRIOS
+# ==========================================
+def _precisao(preco):
+    """Retorna o número de casas decimais adequado para o preço.
+    - Preço >= 10: 2 casas
+    - Preço entre 1 e 10: 3 casas
+    - Preço < 1: 4 casas
+    """
+    if preco >= 10:
+        return 2
+    elif preco >= 1:
+        return 3
+    else:
+        return 4
 
 
 # ==========================================
@@ -182,7 +200,7 @@ def registrar_compra(ativo, tipo, preco, qtd, alvo, stop, perfil="equilibrado"):
     }])
     df = pd.concat([df, nova], ignore_index=True)
     salvar_portfolio(df)
-    print(f"✅ Compra: {ativo} @ {preco:.2f} | Perfil: {perfil}")
+    print(f"✅ Compra: {ativo} @ {preco:.{_precisao(preco)}f} | Perfil: {perfil}")
     return nova
 
 
@@ -194,11 +212,12 @@ def atualizar_trailing(ativo, preco_atual, distancia_pct):
     idx = df[mask].index[0]
     stop_atual = float(df.at[idx, "Stop_Atual"] or 0)
     novo_stop = preco_atual * (1 - distancia_pct / 100)
-    if round(novo_stop, 2) > round(stop_atual, 2):
-        df.at[idx, "Stop_Atual"] = round(novo_stop, 2)
+    casas = _precisao(preco_atual)
+    if round(novo_stop, casas) > round(stop_atual, casas):
+        df.at[idx, "Stop_Atual"] = round(novo_stop, casas)
         salvar_portfolio(df)
-        return round(novo_stop, 2)
-    return round(stop_atual, 2)
+        return round(novo_stop, casas)
+    return round(stop_atual, casas)
 
 
 def registrar_venda(ativo, preco_venda, motivo="", parcial=False, pct_parcial=0.5):
@@ -222,7 +241,7 @@ def registrar_venda(ativo, preco_venda, motivo="", parcial=False, pct_parcial=0.
         lucro_pct = ((preco_venda / pc) - 1) * 100
         df.at[idx, "Qtd_Restante"] = round(qtd_nova, 6)
         salvar_portfolio(df)
-        print(f"✅ Venda PARCIAL: {ativo} @ {preco_venda:.2f} ({int(pct_parcial*100)}%) | "
+        print(f"✅ Venda PARCIAL: {ativo} @ {preco_venda:.{_precisao(preco_venda)}f} ({int(pct_parcial*100)}%) | "
               f"Lucro: R$ {lucro_rs:.2f} ({lucro_pct:+.2f}%)")
         return {"ativo": ativo, "preco_compra": pc, "preco_venda": preco_venda,
                 "lucro_rs": lucro_rs, "lucro_pct": lucro_pct,
@@ -238,7 +257,7 @@ def registrar_venda(ativo, preco_venda, motivo="", parcial=False, pct_parcial=0.
         df.at[idx, "Status"]       = "FECHADO"
         df.at[idx, "Motivo"]       = motivo
         salvar_portfolio(df)
-        print(f"✅ Venda TOTAL: {ativo} @ {preco_venda:.2f} | "
+        print(f"✅ Venda TOTAL: {ativo} @ {preco_venda:.{_precisao(preco_venda)}f} | "
               f"Lucro: R$ {lucro_rs:.2f} ({lucro_pct:+.2f}%) | {motivo}")
         return {"ativo": ativo, "preco_compra": pc, "preco_venda": preco_venda,
                 "lucro_rs": lucro_rs, "lucro_pct": lucro_pct,
@@ -688,8 +707,9 @@ def calcular_alvo_stop(df, perfil="equilibrado"):
     ultima = d.iloc[-1]
     preco = float(ultima["close"])
     atr = float(ultima["ATR"]) if pd.notna(ultima["ATR"]) else preco * 0.02
-    alvo = preco + cfg["mult_alvo"] * atr
-    stop = preco - cfg["mult_stop"] * atr
+    casas = _precisao(preco)
+    alvo = round(preco + cfg["mult_alvo"] * atr, casas)
+    stop = round(preco - cfg["mult_stop"] * atr, casas)
     return preco, alvo, stop, atr
 
 
@@ -844,7 +864,7 @@ def analisar_ativo(nome, df, macro_score=0, lstm_variacao=None,
 
     return {
         "Ativo":          nome,
-        "Preço":          round(float(ultima["close"]), 2),
+        "Preço":          round(float(ultima["close"]), _precisao(float(ultima["close"]))),
         "RSI":            round(float(ultima["RSI"]), 1) if pd.notna(ultima["RSI"]) else None,
         "Score":          s,
         "Veredito":       v,
@@ -951,12 +971,13 @@ def enviar_telegram(mensagem):
 def alerta_compra(ativo, preco, alvo, stop, veredito, lstm_pct, lstm_tend, perfil, sentimento=0.0):
     lstm_str = f"{lstm_pct:+.2f}% {lstm_tend}" if lstm_pct is not None else "n/a"
     sent_str = f"{sentimento:+.3f}" if sentimento != 0 else "neutro"
+    casas = _precisao(preco)
     msg = (
         f"🟢 *SINAL DE COMPRA* 🟢\n\n"
         f"📌 Ativo: `{ativo}`\n"
-        f"💰 Preço: {preco:,.2f}\n"
-        f"🎯 Alvo: {alvo:,.2f}\n"
-        f"🛑 Stop inicial: {stop:,.2f}\n"
+        f"💰 Preço: {preco:,.{casas}f}\n"
+        f"🎯 Alvo: {alvo:,.{casas}f}\n"
+        f"🛑 Stop inicial: {stop:,.{casas}f}\n"
         f"📊 Veredito: {veredito}\n"
         f"🧠 LSTM: {lstm_str}\n"
         f"📰 Sentimento: {sent_str}\n"
@@ -969,11 +990,12 @@ def alerta_compra(ativo, preco, alvo, stop, veredito, lstm_pct, lstm_tend, perfi
 def alerta_venda(ativo, preco_compra, preco_venda, lucro_rs, lucro_pct, motivo, parcial=False):
     emoji = "✅" if lucro_rs > 0 else "❌"
     tipo  = "PARCIAL" if parcial else "TOTAL"
+    casas = _precisao(preco_venda)
     msg = (
         f"{emoji} *VENDA {tipo}* {emoji}\n\n"
         f"📌 Ativo: `{ativo}`\n"
-        f"💵 Entrada: {preco_compra:,.2f}\n"
-        f"💵 Saída: {preco_venda:,.2f}\n"
+        f"💵 Entrada: {preco_compra:,.{casas}f}\n"
+        f"💵 Saída: {preco_venda:,.{casas}f}\n"
         f"💸 Lucro: R$ {lucro_rs:,.2f} ({lucro_pct:+.2f}%)\n"
         f"📋 Motivo: {motivo}\n\n"
         f"⏰ {datetime.now().strftime('%d/%m/%Y %H:%M')}"
@@ -982,11 +1004,12 @@ def alerta_venda(ativo, preco_compra, preco_venda, lucro_rs, lucro_pct, motivo, 
 
 
 def alerta_trailing(ativo, stop_antigo, stop_novo, preco_atual):
+    casas = _precisao(preco_atual)
     msg = (
         f"📈 *TRAILING STOP ATUALIZADO*\n\n"
         f"📌 Ativo: `{ativo}`\n"
-        f"💰 Preço atual: {preco_atual:,.2f}\n"
-        f"🛑 Stop: {stop_antigo:,.2f} → *{stop_novo:,.2f}*\n\n"
+        f"💰 Preço atual: {preco_atual:,.{casas}f}\n"
+        f"🛑 Stop: {stop_antigo:,.{casas}f} → *{stop_novo:,.{casas}f}*\n\n"
         f"🔒 Lucro protegido\n"
         f"⏰ {datetime.now().strftime('%d/%m/%Y %H:%M')}"
     )
@@ -1030,8 +1053,9 @@ def verificar_posicoes_abertas(tabela, dfs, perfil=None):
         lucro_pct = (preco_atual / preco_compra - 1) * 100
         if lucro_pct >= cfg["trailing_ativa_em"]:
             novo_stop = preco_atual * (1 - cfg["distancia_trailing"] / 100)
-            novo_stop_arred = round(novo_stop, 2)
-            stop_atual_arred = round(stop_atual, 2)
+            casas = _precisao(preco_atual)
+            novo_stop_arred = round(novo_stop, casas)
+            stop_atual_arred = round(stop_atual, casas)
             if novo_stop_arred > stop_atual_arred:
                 atualizar_trailing(ativo, preco_atual, cfg["distancia_trailing"])
                 alerta_trailing(ativo, stop_atual_arred, novo_stop_arred, preco_atual)
@@ -1046,12 +1070,13 @@ def verificar_posicoes_abertas(tabela, dfs, perfil=None):
                     alerta_venda(res["ativo"], res["preco_compra"], res["preco_venda"],
                                  res["lucro_rs"], res["lucro_pct"],
                                  "🎯 Alvo 50%", parcial=True)
+                    casas = _precisao(preco_compra)
                     novo_alvo = alvo + (alvo - preco_compra) * 0.5
                     df_port = carregar_portfolio()
                     mask = (df_port["Ativo"] == ativo) & (df_port["Status"] == "ABERTO")
                     if not df_port[mask].empty:
                         idx2 = df_port[mask].index[0]
-                        df_port.at[idx2, "Alvo"] = round(novo_alvo, 2)
+                        df_port.at[idx2, "Alvo"] = round(novo_alvo, casas)
                         salvar_portfolio(df_port)
             else:
                 res = registrar_venda(ativo, preco_atual, motivo="🎯 Alvo")
@@ -1087,6 +1112,14 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
     if perfil is None:
         perfil = PERFIL_ATIVO
 
+    # Verifica limite de posições no início
+    portfolio = carregar_portfolio()
+    posicoes_abertas = len(portfolio[portfolio["Status"] == "ABERTO"])
+    if posicoes_abertas >= MAX_POSICOES:
+        print(f"   ⛔ Limite de {MAX_POSICOES} posições atingido "
+              f"({posicoes_abertas} abertas). Pulando novas aberturas.")
+        return []
+
     novas = []
     for _, row in tabela.iterrows():
         ativo = row["Ativo"]
@@ -1103,16 +1136,24 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
                           (portfolio["Status"] == "ABERTO")].empty:
             continue
 
+        # Verifica o limite a cada nova abertura
+        portfolio = carregar_portfolio()
+        if len(portfolio[portfolio["Status"] == "ABERTO"]) >= MAX_POSICOES:
+            print(f"   ⛔ Limite de {MAX_POSICOES} posições atingido no meio do ciclo.")
+            break
+
         df = dfs.get(ativo)
         if df is None or df.empty:
             continue
 
         preco, alvo, stop, atr = calcular_alvo_stop(df, perfil=perfil)
+        casas = _precisao(preco)
         qtd = round(VALOR_POR_TRADE / preco, 6)
         tipo = "Cripto" if ativo in CRIPTO_WATCHLIST else "Ação"
-        print(f"   🟢 ABRINDO {ativo} @ {preco:.2f} | Alvo {alvo:.2f} | Stop {stop:.2f} | {perfil}")
-        registrar_compra(ativo, tipo, round(preco, 2), qtd,
-                         round(alvo, 2), round(stop, 2), perfil=perfil)
+        print(f"   🟢 ABRINDO {ativo} @ {preco:.{casas}f} | "
+              f"Alvo {alvo:.{casas}f} | Stop {stop:.{casas}f} | {perfil}")
+        registrar_compra(ativo, tipo, round(preco, casas), qtd,
+                         round(alvo, casas), round(stop, casas), perfil=perfil)
 
         lstm_pct = row.get("LSTM_variacao")
         lstm_tend = row.get("LSTM_tendencia") or ""
