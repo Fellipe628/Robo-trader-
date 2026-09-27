@@ -1,6 +1,7 @@
 # ==========================================
-# ROBÔ TRADER — GitHub Actions (v3)
+# ROBÔ TRADER — GitHub Actions (v3.1)
 # LSTM + Macro + Trailing + Sentimento
+# Fix: coluna Motivo no portfólio
 # ==========================================
 import os
 import time
@@ -136,6 +137,7 @@ def _df_vazio():
         "Stop_Inicial":  pd.Series(dtype="float64"),
         "Stop_Atual":    pd.Series(dtype="float64"),
         "Perfil":        pd.Series(dtype="object"),
+        "Motivo":        pd.Series(dtype="object"),
     })
 
 
@@ -145,13 +147,13 @@ def carregar_portfolio():
             df = pd.read_csv(ARQUIVO)
         except Exception:
             return _df_vazio()
-        for c in ["Qtd_Restante", "Stop_Inicial", "Stop_Atual", "Perfil"]:
+        for c in ["Qtd_Restante", "Stop_Inicial", "Stop_Atual", "Perfil", "Motivo"]:
             if c not in df.columns:
                 df[c] = None
         if "Stop" in df.columns:
             df["Stop_Inicial"] = df["Stop_Inicial"].fillna(df["Stop"])
             df["Stop_Atual"]   = df["Stop_Atual"].fillna(df["Stop"])
-        for c in ["Ativo", "Tipo", "Data_Compra", "Data_Venda", "Status", "Perfil"]:
+        for c in ["Ativo", "Tipo", "Data_Compra", "Data_Venda", "Status", "Perfil", "Motivo"]:
             if c in df.columns:
                 df[c] = df[c].astype(object)
         return df
@@ -176,7 +178,7 @@ def registrar_compra(ativo, tipo, preco, qtd, alvo, stop, perfil="equilibrado"):
         "Lucro_R$": None, "Lucro_%": None,
         "Status": "ABERTO", "Alvo": alvo,
         "Stop_Inicial": stop, "Stop_Atual": stop,
-        "Perfil": perfil,
+        "Perfil": perfil, "Motivo": None,
     }])
     df = pd.concat([df, nova], ignore_index=True)
     salvar_portfolio(df)
@@ -208,7 +210,10 @@ def registrar_venda(ativo, preco_venda, motivo="", parcial=False, pct_parcial=0.
 
     idx = df[mask].index[0]
     pc = float(df.at[idx, "Preco_Compra"])
-    qtd_restante = float(df.at[idx, "Qtd_Restante"] or df.at[idx, "Qtd"])
+    qtd_restante_raw = df.at[idx, "Qtd_Restante"]
+    if pd.isna(qtd_restante_raw):
+        qtd_restante_raw = df.at[idx, "Qtd"]
+    qtd_restante = float(qtd_restante_raw) if pd.notna(qtd_restante_raw) else 0
 
     if parcial:
         qtd_vendida = qtd_restante * pct_parcial
@@ -231,6 +236,7 @@ def registrar_venda(ativo, preco_venda, motivo="", parcial=False, pct_parcial=0.
         df.at[idx, "Lucro_%"]      = round(lucro_pct, 2)
         df.at[idx, "Qtd_Restante"] = 0
         df.at[idx, "Status"]       = "FECHADO"
+        df.at[idx, "Motivo"]       = motivo
         salvar_portfolio(df)
         print(f"✅ Venda TOTAL: {ativo} @ {preco_venda:.2f} | "
               f"Lucro: R$ {lucro_rs:.2f} ({lucro_pct:+.2f}%) | {motivo}")
@@ -418,6 +424,7 @@ def obter_sentimento_todos(forcar=False):
         time.sleep(0.5)
     return resultado
 
+
 # ==========================================
 # COLETA DE DADOS
 # ==========================================
@@ -538,7 +545,6 @@ def calcular_contexto_macro(macro_dfs):
     contexto["score"] = max(-5, min(5, contexto["score"]))
     return contexto
 
-
 # ==========================================
 # INDICADORES
 # ==========================================
@@ -583,9 +589,7 @@ def calcular_indicadores(df, coluna_preco="close"):
 
 def gerar_sinal(row, coluna_preco="close", macro_score=0, lstm_variacao=None,
                 perfil="equilibrado", sentimento=0.0):
-    """
-    Motor de sinais com contexto macro, LSTM e sentimento.
-    """
+    """Motor de sinais com contexto macro, LSTM e sentimento."""
     preco_atual = row[coluna_preco]
     score = 0
     motivos = []
@@ -923,6 +927,7 @@ def rodar_watchlist_completa(treinar_lstm_flag=False, perfil=None):
 
     return pd.DataFrame(resultados), dfs
 
+
 # ==========================================
 # TELEGRAM
 # ==========================================
@@ -1154,7 +1159,7 @@ def gerar_relatorio_semanal():
         lucro_total = fechadas_semana["Lucro_R$"].sum()
         melhor = fechadas_semana.loc[fechadas_semana["Lucro_%"].idxmax()]
         pior = fechadas_semana.loc[fechadas_semana["Lucro_%"].idxmin()]
-        motivos = fechadas_semana["Motivo"].astype(str)
+        motivos = fechadas_semana["Motivo"].fillna("").astype(str)
         stops = int(motivos.str.contains("Stop").sum())
         alvos = int(motivos.str.contains("Alvo").sum())
         reversoes = int(motivos.str.contains("Revers").sum())
