@@ -159,6 +159,40 @@ def _df_vazio():
         "Perfil":        pd.Series(dtype="object"),
         "Motivo":        pd.Series(dtype="object"),
     })
+def _deduplicar_portfolio(df):
+    """Remove duplicatas: mantém apenas o registro mais recente por ativo ABERTO."""
+    if df.empty:
+        return df
+    abertos = df[df["Status"] == "ABERTO"].copy()
+    fechados = df[df["Status"] != "ABERTO"].copy()
+    if not abertos.empty:
+        abertos = abertos.sort_values("ID", ascending=False)
+        abertos = abertos.drop_duplicates(subset=["Ativo"], keep="first")
+    resultado = pd.concat([fechados, abertos], ignore_index=True)
+    resultado = resultado.sort_values("ID").reset_index(drop=True)
+    return resultado
+
+
+def _corrigir_nan_antigo(df):
+    """Corrige NaN em Lucro_R$ de trades FECHADO recalculando."""
+    if df.empty:
+        return df
+    mask = (df["Status"] == "FECHADO") & (df["Lucro_R$"].isna())
+    if not mask.any():
+        return df
+    for idx in df[mask].index:
+        try:
+            pc = float(df.at[idx, "Preco_Compra"])
+            pv = float(df.at[idx, "Preco_Venda"])
+            qtd = float(df.at[idx, "Qtd"])
+            if pd.notna(pc) and pd.notna(pv) and pd.notna(qtd):
+                lucro_rs = (pv - pc) * qtd
+                lucro_pct = ((pv / pc) - 1) * 100
+                df.at[idx, "Lucro_R$"] = round(lucro_rs, 2)
+                df.at[idx, "Lucro_%"]  = round(lucro_pct, 2)
+        except Exception:
+            pass
+    return df
 
 
 def carregar_portfolio():
@@ -176,6 +210,9 @@ def carregar_portfolio():
         for c in ["Ativo", "Tipo", "Data_Compra", "Data_Venda", "Status", "Perfil", "Motivo"]:
             if c in df.columns:
                 df[c] = df[c].astype(object)
+        # Deduplicação + correção de NaN antigo
+        df = _deduplicar_portfolio(df)
+        df = _corrigir_nan_antigo(df)
         return df
     return _df_vazio()
 
@@ -312,12 +349,14 @@ def salvar_analise(tabela):
         try:
             df_antigo = pd.read_csv(ARQUIVO_LOG)
             df_final  = pd.concat([df_antigo, df_novo], ignore_index=True)
+            # Limita a 30.000 linhas (aprox. 7 dias de operação)
+            if len(df_final) > 30000:
+                df_final = df_final.tail(30000)
         except Exception:
             df_final = df_novo
     else:
         df_final = df_novo
     df_final.to_csv(ARQUIVO_LOG, index=False)
-
 
 # ==========================================
 # COOLDOWN (após stop OU alvo)
@@ -839,15 +878,25 @@ def gerar_sinal(row, coluna_preco="close", macro_score=0, lstm_variacao=None,
     return veredito, score, " | ".join(motivos)
 
 
-def calcular_alvo_stop(df, perfil="equilibrado"):
+def calcular_alvo_stop(df, perfil="equilibrado", tipo="Ação"):
+    """Calcula alvo e stop. Para cripto (1h), usa multiplicadores maiores."""
     cfg = PERFIS[perfil]
     d = calcular_indicadores(df, coluna_preco="close")
     ultima = d.iloc[-1]
     preco = float(ultima["close"])
     atr = float(ultima["ATR"]) if pd.notna(ultima["ATR"]) else preco * 0.02
     casas = _precisao(preco)
-    alvo = round(preco + cfg["mult_alvo"] * atr, casas)
-    stop = round(preco - cfg["mult_stop"] * atr, casas)
+
+    # Cripto em 1h é mais volátil — usa multiplicadores maiores
+    if tipo == "Cripto":
+        mult_alvo = cfg["mult_alvo"] * 1.5
+        mult_stop = cfg["mult_stop"] * 1.5
+    else:
+        mult_alvo = cfg["mult_alvo"]
+        mult_stop = cfg["mult_stop"]
+
+    alvo = round(preco + mult_alvo * atr, casas)
+    stop = round(preco - mult_stop * atr, casas)
     return preco, alvo, stop, atr
 
 
@@ -1356,11 +1405,11 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
         if df is None or df.empty:
             continue
 
-        preco, alvo, stop, atr = calcular_alvo_stop(df, perfil=perfil)
+        tipo = "Cripto" if ativo in CRIPTO_WATCHLIST else "Ação"
+        preco, alvo, stop, atr = calcular_alvo_stop(df, perfil=perfil, tipo=tipo)
         casas = _precisao(preco)
         valor_trade = VALOR_POR_TRADE * tamanho_pct
         qtd = round(valor_trade / preco, 6)
-        tipo = "Cripto" if ativo in CRIPTO_WATCHLIST else "Ação"
         print(f"   🟢 ABRINDO {ativo} @ {preco:.{casas}f} | "
               f"Alvo {alvo:.{casas}f} | Stop {stop:.{casas}f} | "
               f"Tamanho {int(tamanho_pct*100)}% | {perfil}")
