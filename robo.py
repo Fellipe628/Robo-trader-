@@ -1221,7 +1221,7 @@ def rodar_watchlist_completa(treinar_lstm_flag=False, perfil=None):
 # ==========================================
 # TELEGRAM
 # ==========================================
-def enviar_telegram(mensagem):
+def enviar_telegram(mensagem, tentativas=3):
     if not _tg_ok:
         return False
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
@@ -1230,91 +1230,20 @@ def enviar_telegram(mensagem):
         "text": mensagem,
         "parse_mode": "Markdown",
     }
-    try:
-        r = requests.post(url, data=payload, timeout=10)
-        return r.status_code == 200
-    except Exception as e:
-        print(f"⚠️ Erro Telegram: {e}")
-        return False
-
-
-def alerta_compra(ativo, preco, alvo, stop, veredito, lstm_pct, lstm_tend, perfil, sentimento=0.0, estado_cb="normal"):
-    lstm_str = f"{lstm_pct:+.2f}% {lstm_tend}" if lstm_pct is not None else "n/a"
-    sent_str = f"{sentimento:+.3f}" if sentimento != 0 else "neutro"
-    casas = _precisao(preco)
-    cb_emoji = {"normal": "🟢", "cauteloso": "🟡", "defensivo": "🔴"}.get(estado_cb, "⚪")
-    msg = (
-        f"🟢 *SINAL DE COMPRA* 🟢\n\n"
-        f"📌 Ativo: `{ativo}`\n"
-        f"💰 Preço: {preco:,.{casas}f}\n"
-        f"🎯 Alvo: {alvo:,.{casas}f}\n"
-        f"🛑 Stop inicial: {stop:,.{casas}f}\n"
-        f"📊 Veredito: {veredito}\n"
-        f"🧠 LSTM: {lstm_str}\n"
-        f"📰 Sentimento: {sent_str}\n"
-        f"⚙️ Perfil: {perfil} | {cb_emoji} CB: {estado_cb}\n\n"
-        f"⏰ {datetime.now().strftime('%d/%m/%Y %H:%M')}"
-    )
-    enviar_telegram(msg)
-
-
-def alerta_venda(ativo, preco_compra, preco_venda, lucro_rs, lucro_pct, motivo, parcial=False):
-    emoji = "✅" if lucro_rs > 0 else "❌"
-    tipo  = "PARCIAL" if parcial else "TOTAL"
-    casas = _precisao(preco_venda)
-    msg = (
-        f"{emoji} *VENDA {tipo}* {emoji}\n\n"
-        f"📌 Ativo: `{ativo}`\n"
-        f"💵 Entrada: {preco_compra:,.{casas}f}\n"
-        f"💵 Saída: {preco_venda:,.{casas}f}\n"
-        f"💸 Lucro: R$ {lucro_rs:,.2f} ({lucro_pct:+.2f}%)\n"
-        f"📋 Motivo: {motivo}\n\n"
-        f"⏰ {datetime.now().strftime('%d/%m/%Y %H:%M')}"
-    )
-    enviar_telegram(msg)
-
-
-def alerta_trailing(ativo, stop_antigo, stop_novo, preco_atual):
-    casas = _precisao(preco_atual)
-    msg = (
-        f"📈 *TRAILING STOP ATUALIZADO*\n\n"
-        f"📌 Ativo: `{ativo}`\n"
-        f"💰 Preço atual: {preco_atual:,.{casas}f}\n"
-        f"🛑 Stop: {stop_antigo:,.{casas}f} → *{stop_novo:,.{casas}f}*\n\n"
-        f"🔒 Lucro protegido\n"
-        f"⏰ {datetime.now().strftime('%d/%m/%Y %H:%M')}"
-    )
-    enviar_telegram(msg)
-
-
-def alerta_let_winner(ativo, alvo, lstm_pct):
-    casas = _precisao(alvo)
-    msg = (
-        f"🎯 *ALVO ATINGIDO — POSIÇÃO MANTIDA*\n\n"
-        f"📌 Ativo: `{ativo}`\n"
-        f"🎯 Alvo batido: {alvo:,.{casas}f}\n"
-        f"🛑 Stop movido para o alvo (lucro garantido)\n"
-        f"🧠 LSTM prevê: +{lstm_pct:.2f}% 📈\n"
-        f"📊 SMA9 > SMA21 (tendência de alta)\n\n"
-        f"📈 Trailing continua ativo. Posição segue aberta.\n"
-        f"⏰ {datetime.now().strftime('%d/%m/%Y %H:%M')}"
-    )
-    enviar_telegram(msg)
-
-
-def alerta_circuit_breaker(estado, stops_24h):
-    emoji = {"cauteloso": "🟡", "defensivo": "🔴"}.get(estado, "⚪")
-    msg = (
-        f"{emoji} *CIRCUIT BREAKER — {estado.upper()}*\n\n"
-        f"⚠️ {stops_24h} stops nas últimas 24h\n"
-        f"📊 Score mínimo aumentado\n"
-        f"📉 Tamanho das posições reduzido\n"
-    )
-    if estado == "defensivo":
-        msg += f"⏸️ Novas entradas pausadas por {PAUSA_DEFENSIVO_HORAS}h\n"
-    msg += f"\n⏰ {datetime.now().strftime('%d/%m/%Y %H:%M')}"
-    enviar_telegram(msg)
-
+    for t in range(tentativas):
+        try:
+            r = requests.post(url, data=payload, timeout=10)
+            if r.status_code == 200:
+                return True
+            elif r.status_code == 429:
+                time.sleep(5 * (t + 1))
+                continue
+        except Exception as e:
+            if t < tentativas - 1:
+                time.sleep(2)
+                continue
+            print(f"⚠️ Erro Telegram após {tentativas} tentativas: {e}")
+    return False
 
 # ==========================================
 # AUTO-TRADING
@@ -1603,6 +1532,22 @@ def gerar_relatorio_semanal():
 # EXECUÇÃO PRINCIPAL
 # ==========================================
 def main():
+    try:
+        _main_interno()
+    except Exception as e:
+        import traceback
+        erro = traceback.format_exc()
+        print(f"❌ ERRO NO ROBÔ: {e}")
+        print(erro)
+        msg = (
+            f"🚨 *ERRO NO ROBÔ*\n\n"
+            f"📅 {datetime.now().strftime('%d/%m/%Y %H:%M')}\n\n"
+            f"```\n{erro[-400:]}\n```"
+        )
+        enviar_telegram(msg)
+        raise
+
+def _main_interno(): 
     print("=" * 75)
     print("🤖 ROBÔ TRADER — CICLO GITHUB ACTIONS")
     print(f"📅 {datetime.now().strftime('%d/%m/%Y %H:%M')}")
