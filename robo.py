@@ -1,7 +1,7 @@
 # ==========================================
-# ROBÔ TRADER — GitHub Actions (v4)
-# LSTM peso real + Circuit breaker + Let winners run
-# Confirmação de stop + Cooldown após alvo
+# ROBÔ TRADER — GitHub Actions (v5)
+# LSTM + Circuit breaker + Let winners run
+# Confirmação de stop + Multi-Timeframe
 # ==========================================
 import os
 import time
@@ -159,8 +159,9 @@ def _df_vazio():
         "Perfil":        pd.Series(dtype="object"),
         "Motivo":        pd.Series(dtype="object"),
     })
+
+
 def _deduplicar_portfolio(df):
-    """Remove duplicatas: mantém apenas o registro mais recente por ativo ABERTO."""
     if df.empty:
         return df
     abertos = df[df["Status"] == "ABERTO"].copy()
@@ -174,7 +175,6 @@ def _deduplicar_portfolio(df):
 
 
 def _corrigir_nan_antigo(df):
-    """Corrige NaN em Lucro_R$ de trades FECHADO recalculando."""
     if df.empty:
         return df
     mask = (df["Status"] == "FECHADO") & (df["Lucro_R$"].isna())
@@ -210,7 +210,6 @@ def carregar_portfolio():
         for c in ["Ativo", "Tipo", "Data_Compra", "Data_Venda", "Status", "Perfil", "Motivo"]:
             if c in df.columns:
                 df[c] = df[c].astype(object)
-        # Deduplicação + correção de NaN antigo
         df = _deduplicar_portfolio(df)
         df = _corrigir_nan_antigo(df)
         return df
@@ -350,7 +349,6 @@ def salvar_analise(tabela):
         try:
             df_antigo = pd.read_csv(ARQUIVO_LOG)
             df_final  = pd.concat([df_antigo, df_novo], ignore_index=True)
-            # Limita a 30.000 linhas (aprox. 7 dias de operação)
             if len(df_final) > 30000:
                 df_final = df_final.tail(30000)
         except Exception:
@@ -358,6 +356,7 @@ def salvar_analise(tabela):
     else:
         df_final = df_novo
     df_final.to_csv(ARQUIVO_LOG, index=False)
+
 
 # ==========================================
 # COOLDOWN (após stop OU alvo)
@@ -462,7 +461,6 @@ def resetar_stops_consecutivos():
 
 
 def verificar_circuit_breaker():
-    """Retorna (estado, score_min_extra, tamanho_pct, pausado)."""
     cb = _carregar_circuit_breaker()
     agora = datetime.now()
 
@@ -528,7 +526,6 @@ def remover_stop_pendente(ativo):
     df = _carregar_stops_pendentes()
     df = df[df["Ativo"] != ativo]
     _salvar_stops_pendentes(df)
-
 
 # ==========================================
 # SENTIMENTO (APITube + Cache diário)
@@ -667,11 +664,8 @@ def buscar_cripto(moeda="BTC", periodo="1mo", intervalo="1h"):
 def buscar_acao(ticker="PETR4.SA", periodo="2y", intervalo="1d"):
     return _baixar_yahoo(ticker, periodo, intervalo)
 
+
 def buscar_mtf(ativo, tipo="Ação"):
-    """Busca 3 timeframes para análise multi-timeframe.
-    - Cripto: 4H + 1H + 15m
-    - Ação:  1D + 4H + 1H
-    """
     if tipo == "Cripto":
         ticker = CRIPTO_YF.get(ativo.upper())
         if not ticker:
@@ -689,11 +683,6 @@ def buscar_mtf(ativo, tipo="Ação"):
 
 
 def calcular_confluencia(dfs_mtf):
-    """Analisa 3 timeframes e retorna (score, motivo).
-    - +2: confluência de ALTA (maioria alinhada para cima)
-    - -2: confluência de BAIXA (maioria alinhada para baixo)
-    -  0: sem confluência clara
-    """
     if not dfs_mtf:
         return 0, "sem dados"
 
@@ -801,6 +790,7 @@ def calcular_contexto_macro(macro_dfs):
     contexto["score"] = max(-5, min(5, contexto["score"]))
     return contexto
 
+
 # ==========================================
 # INDICADORES
 # ==========================================
@@ -842,14 +832,13 @@ def calcular_indicadores(df, coluna_preco="close"):
 
     return d
 
+
 def gerar_sinal(row, coluna_preco="close", macro_score=0, lstm_variacao=None,
-     perfil="equilibrado", sentimento=0.0, confluencia=0, confluencia_motivo=""):
-    """Motor de sinais com LSTM peso real + macro + sentimento + multi-timeframe."""
+                perfil="equilibrado", sentimento=0.0, confluencia=0, confluencia_motivo=""):
     preco_atual = row[coluna_preco]
     score = 0
     motivos = []
 
-    # --- BLOQUEIO por LSTM muito pessimista ---
     if lstm_variacao is not None and lstm_variacao < -2.0:
         return "🚫 BLOQUEADO", 0, f"LSTM {lstm_variacao:.1f}% (queda forte)"
 
@@ -916,14 +905,12 @@ def gerar_sinal(row, coluna_preco="close", macro_score=0, lstm_variacao=None,
         score += macro_score
         motivos.append(f"Macro {macro_score:+d}")
 
-    # --- LSTM com PESO REAL ---
     if lstm_variacao is not None:
         if lstm_variacao > 1.0:
             score += 2; motivos.append(f"LSTM +{lstm_variacao:.1f}%")
         elif lstm_variacao < -1.0:
             score -= 2; motivos.append(f"LSTM {lstm_variacao:.1f}%")
 
-    # --- Sentimento ---
     if sentimento > 0.2:
         score += 1
         motivos.append(f"Sentimento +{sentimento:.2f}")
@@ -931,7 +918,6 @@ def gerar_sinal(row, coluna_preco="close", macro_score=0, lstm_variacao=None,
         score -= 1
         motivos.append(f"Sentimento {sentimento:.2f}")
 
-    # --- Multi-Timeframe (confluência) ---
     if confluencia != 0:
         score += confluencia
         motivos.append(f"MTF {confluencia_motivo}")
@@ -946,6 +932,27 @@ def gerar_sinal(row, coluna_preco="close", macro_score=0, lstm_variacao=None,
     else:             veredito = "🟡 AGUARDAR"
 
     return veredito, score, " | ".join(motivos)
+
+
+def calcular_alvo_stop(df, perfil="equilibrado", tipo="Ação"):
+    cfg = PERFIS[perfil]
+    d = calcular_indicadores(df, coluna_preco="close")
+    ultima = d.iloc[-1]
+    preco = float(ultima["close"])
+    atr = float(ultima["ATR"]) if pd.notna(ultima["ATR"]) else preco * 0.02
+    casas = _precisao(preco)
+
+    if tipo == "Cripto":
+        mult_alvo = cfg["mult_alvo"] * 1.5
+        mult_stop = cfg["mult_stop"] * 1.5
+    else:
+        mult_alvo = cfg["mult_alvo"]
+        mult_stop = cfg["mult_stop"]
+
+    alvo = round(preco + mult_alvo * atr, casas)
+    stop = round(preco - mult_stop * atr, casas)
+    return preco, alvo, stop, atr
+
 
 # ==========================================
 # LSTM
@@ -1166,14 +1173,12 @@ def rodar_watchlist_completa(treinar_lstm_flag=False, perfil=None):
     dfs = {}
 
     print("   🔬 Coletando multi-timeframe...")
-    # Cripto
     for nome in CRIPTO_WATCHLIST:
         print(f"   🔎 {nome}")
         df = buscar_cripto(nome, periodo="1mo", intervalo="1h")
         dfs[nome] = df
         sent = sentimentos.get(nome, 0.0)
 
-        # MTF
         try:
             dfs_mtf = buscar_mtf(nome, tipo="Cripto")
             confluencia, confluencia_motivo = calcular_confluencia(dfs_mtf)
@@ -1190,14 +1195,12 @@ def rodar_watchlist_completa(treinar_lstm_flag=False, perfil=None):
                                               confluencia_motivo=confluencia_motivo))
         time.sleep(0.3)
 
-    # Ações
     for nome, ticker in ACOES_WATCHLIST.items():
         print(f"   🔎 {nome}")
         df = buscar_acao(ticker, periodo="2y", intervalo="1d")
         dfs[nome] = df
         sent = sentimentos.get(nome, 0.0)
 
-        # MTF
         try:
             dfs_mtf = buscar_mtf(nome, tipo="Ação")
             confluencia, confluencia_motivo = calcular_confluencia(dfs_mtf)
@@ -1215,8 +1218,6 @@ def rodar_watchlist_completa(treinar_lstm_flag=False, perfil=None):
         time.sleep(0.3)
 
     return pd.DataFrame(resultados), dfs
-
-
 
 # ==========================================
 # TELEGRAM
@@ -1244,6 +1245,85 @@ def enviar_telegram(mensagem, tentativas=3):
                 continue
             print(f"⚠️ Erro Telegram após {tentativas} tentativas: {e}")
     return False
+
+
+def alerta_compra(ativo, preco, alvo, stop, veredito, lstm_pct, lstm_tend, perfil, sentimento=0.0, estado_cb="normal"):
+    lstm_str = f"{lstm_pct:+.2f}% {lstm_tend}" if lstm_pct is not None else "n/a"
+    sent_str = f"{sentimento:+.3f}" if sentimento != 0 else "neutro"
+    casas = _precisao(preco)
+    cb_emoji = {"normal": "🟢", "cauteloso": "🟡", "defensivo": "🔴"}.get(estado_cb, "⚪")
+    msg = (
+        f"🟢 *SINAL DE COMPRA* 🟢\n\n"
+        f"📌 Ativo: `{ativo}`\n"
+        f"💰 Preço: {preco:,.{casas}f}\n"
+        f"🎯 Alvo: {alvo:,.{casas}f}\n"
+        f"🛑 Stop inicial: {stop:,.{casas}f}\n"
+        f"📊 Veredito: {veredito}\n"
+        f"🧠 LSTM: {lstm_str}\n"
+        f"📰 Sentimento: {sent_str}\n"
+        f"⚙️ Perfil: {perfil} | {cb_emoji} CB: {estado_cb}\n\n"
+        f"⏰ {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+    )
+    enviar_telegram(msg)
+
+
+def alerta_venda(ativo, preco_compra, preco_venda, lucro_rs, lucro_pct, motivo, parcial=False):
+    emoji = "✅" if lucro_rs > 0 else "❌"
+    tipo  = "PARCIAL" if parcial else "TOTAL"
+    casas = _precisao(preco_venda)
+    msg = (
+        f"{emoji} *VENDA {tipo}* {emoji}\n\n"
+        f"📌 Ativo: `{ativo}`\n"
+        f"💵 Entrada: {preco_compra:,.{casas}f}\n"
+        f"💵 Saída: {preco_venda:,.{casas}f}\n"
+        f"💸 Lucro: R$ {lucro_rs:,.2f} ({lucro_pct:+.2f}%)\n"
+        f"📋 Motivo: {motivo}\n\n"
+        f"⏰ {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+    )
+    enviar_telegram(msg)
+
+
+def alerta_trailing(ativo, stop_antigo, stop_novo, preco_atual):
+    casas = _precisao(preco_atual)
+    msg = (
+        f"📈 *TRAILING STOP ATUALIZADO*\n\n"
+        f"📌 Ativo: `{ativo}`\n"
+        f"💰 Preço atual: {preco_atual:,.{casas}f}\n"
+        f"🛑 Stop: {stop_antigo:,.{casas}f} → *{stop_novo:,.{casas}f}*\n\n"
+        f"🔒 Lucro protegido\n"
+        f"⏰ {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+    )
+    enviar_telegram(msg)
+
+
+def alerta_let_winner(ativo, alvo, lstm_pct):
+    casas = _precisao(alvo)
+    msg = (
+        f"🎯 *ALVO ATINGIDO — POSIÇÃO MANTIDA*\n\n"
+        f"📌 Ativo: `{ativo}`\n"
+        f"🎯 Alvo batido: {alvo:,.{casas}f}\n"
+        f"🛑 Stop movido para o alvo (lucro garantido)\n"
+        f"🧠 LSTM prevê: +{lstm_pct:.2f}% 📈\n"
+        f"📊 SMA9 > SMA21 (tendência de alta)\n\n"
+        f"📈 Trailing continua ativo. Posição segue aberta.\n"
+        f"⏰ {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+    )
+    enviar_telegram(msg)
+
+
+def alerta_circuit_breaker(estado, stops_24h):
+    emoji = {"cauteloso": "🟡", "defensivo": "🔴"}.get(estado, "⚪")
+    msg = (
+        f"{emoji} *CIRCUIT BREAKER — {estado.upper()}*\n\n"
+        f"⚠️ {stops_24h} stops nas últimas 24h\n"
+        f"📊 Score mínimo aumentado\n"
+        f"📉 Tamanho das posições reduzido\n"
+    )
+    if estado == "defensivo":
+        msg += f"⏸️ Novas entradas pausadas por {PAUSA_DEFENSIVO_HORAS}h\n"
+    msg += f"\n⏰ {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+    enviar_telegram(msg)
+
 
 # ==========================================
 # AUTO-TRADING
@@ -1306,7 +1386,6 @@ def verificar_posicoes_abertas(tabela, dfs, perfil=None):
             lstm_positivo = (lstm_pct is not None and lstm_pct > 0)
 
             if lstm_positivo and sma_alta and qtd_restante > 0:
-                # Continua posição: move stop para o alvo
                 df_port = carregar_portfolio()
                 mask = (df_port["Ativo"] == ativo) & (df_port["Status"] == "ABERTO")
                 if not df_port[mask].empty:
@@ -1316,7 +1395,6 @@ def verificar_posicoes_abertas(tabela, dfs, perfil=None):
                 alerta_let_winner(ativo, alvo, lstm_pct)
                 stop_atual = round(alvo, casas)
             else:
-                # Vende no alvo + cooldown
                 res = registrar_venda(ativo, preco_atual, motivo="🎯 Alvo")
                 if res:
                     alerta_venda(res["ativo"], res["preco_compra"], res["preco_venda"],
@@ -1329,7 +1407,6 @@ def verificar_posicoes_abertas(tabela, dfs, perfil=None):
         # --- STOP com confirmação de 1 ciclo ---
         if preco_atual <= stop_atual:
             if stop_esta_pendente(ativo):
-                # 2º acionamento: vende
                 motivo = "🛑 Stop" if stop_atual == float(pos["Stop_Inicial"] or 0) else "📉 Trailing Stop"
                 res = registrar_venda(ativo, preco_atual, motivo=motivo)
                 if res:
@@ -1341,12 +1418,10 @@ def verificar_posicoes_abertas(tabela, dfs, perfil=None):
                 fechamentos.append(ativo)
                 continue
             else:
-                # 1º acionamento: registra pendente, aguarda
                 registrar_stop_pendente(ativo, preco_atual)
                 print(f"   ⏳ {ativo} stop acionado — aguardando confirmação no próximo ciclo")
                 continue
         else:
-            # Preço recuperou: cancela pendência
             if stop_esta_pendente(ativo):
                 remover_stop_pendente(ativo)
                 print(f"   ✅ {ativo} recuperou — stop pendente cancelado")
@@ -1369,7 +1444,6 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
     if perfil is None:
         perfil = PERFIL_ATIVO
 
-    # --- Circuit breaker ---
     estado_cb, score_extra, tamanho_pct, pausado = verificar_circuit_breaker()
     print(f"   🔌 Circuit breaker: {estado_cb.upper()} | score_extra=+{score_extra} | tamanho={int(tamanho_pct*100)}%")
 
@@ -1393,7 +1467,6 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
         if "COMPRA" not in veredito:
             continue
 
-        # Aplica score mínimo aumentado
         score_ativo = row.get("Score")
         if score_ativo is not None and score_ativo < score_minimo:
             print(f"   ⚠️ {ativo} score {score_ativo} < mínimo {score_minimo} (CB {estado_cb})")
@@ -1547,7 +1620,8 @@ def main():
         enviar_telegram(msg)
         raise
 
-def _main_interno(): 
+
+def _main_interno():
     print("=" * 75)
     print("🤖 ROBÔ TRADER — CICLO GITHUB ACTIONS")
     print(f"📅 {datetime.now().strftime('%d/%m/%Y %H:%M')}")
