@@ -342,6 +342,7 @@ def salvar_analise(tabela):
             "LSTM_tendencia":  row.get("LSTM_tendencia"),
             "Macro_Score":     row.get("Macro_Score"),
             "Sentimento":      row.get("Sentimento"),
+            "MTF":             row.get("MTF"),
             "Motivos":         row["Motivos"],
         })
     df_novo = pd.DataFrame(linhas)
@@ -666,6 +667,70 @@ def buscar_cripto(moeda="BTC", periodo="1mo", intervalo="1h"):
 def buscar_acao(ticker="PETR4.SA", periodo="2y", intervalo="1d"):
     return _baixar_yahoo(ticker, periodo, intervalo)
 
+def buscar_mtf(ativo, tipo="Ação"):
+    """Busca 3 timeframes para análise multi-timeframe.
+    - Cripto: 4H + 1H + 15m
+    - Ação:  1D + 4H + 1H
+    """
+    if tipo == "Cripto":
+        ticker = CRIPTO_YF.get(ativo.upper())
+        if not ticker:
+            return None
+        df_maior = _baixar_yahoo(ticker, periodo="1mo", intervalo="4h")
+        df_medio = _baixar_yahoo(ticker, periodo="1mo", intervalo="1h")
+        df_menor = _baixar_yahoo(ticker, periodo="5d",  intervalo="15m")
+    else:
+        ticker = ACOES_WATCHLIST.get(ativo, f"{ativo}.SA")
+        df_maior = _baixar_yahoo(ticker, periodo="6mo", intervalo="1d")
+        df_medio = _baixar_yahoo(ticker, periodo="1mo", intervalo="1h")
+        df_menor = _baixar_yahoo(ticker, periodo="5d",  intervalo="1h")
+
+    return {"maior": df_maior, "medio": df_medio, "menor": df_menor}
+
+
+def calcular_confluencia(dfs_mtf):
+    """Analisa 3 timeframes e retorna (score, motivo).
+    - +2: confluência de ALTA (maioria alinhada para cima)
+    - -2: confluência de BAIXA (maioria alinhada para baixo)
+    -  0: sem confluência clara
+    """
+    if not dfs_mtf:
+        return 0, "sem dados"
+
+    sinais = []
+    detalhes = []
+
+    for nome, df in dfs_mtf.items():
+        if df is None or df.empty or len(df) < 30:
+            continue
+        try:
+            d = calcular_indicadores(df, coluna_preco="close")
+            ultima = d.iloc[-1]
+            if pd.isna(ultima["SMA_9"]) or pd.isna(ultima["SMA_21"]):
+                continue
+            if ultima["SMA_9"] > ultima["SMA_21"]:
+                sinais.append(1)
+                detalhes.append(f"{nome}:↑")
+            else:
+                sinais.append(-1)
+                detalhes.append(f"{nome}:↓")
+        except Exception:
+            continue
+
+    if len(sinais) < 2:
+        return 0, "dados insuficientes"
+
+    positivos = sum(1 for s in sinais if s > 0)
+    negativos = sum(1 for s in sinais if s < 0)
+    total = len(sinais)
+
+    if positivos >= 2 and positivos > negativos:
+        return 2, f"ALTA ({positivos}/{total}) [{' '.join(detalhes)}]"
+    elif negativos >= 2 and negativos > positivos:
+        return -2, f"BAIXA ({negativos}/{total}) [{' '.join(detalhes)}]"
+    else:
+        return 0, f"neutro [{' '.join(detalhes)}]"
+
 
 def buscar_macro():
     macro = {}
@@ -777,10 +842,9 @@ def calcular_indicadores(df, coluna_preco="close"):
 
     return d
 
-
 def gerar_sinal(row, coluna_preco="close", macro_score=0, lstm_variacao=None,
-                perfil="equilibrado", sentimento=0.0):
-    """Motor de sinais com LSTM peso real + macro + sentimento."""
+     perfil="equilibrado", sentimento=0.0, confluencia=0, confluencia_motivo=""):
+    """Motor de sinais com LSTM peso real + macro + sentimento + multi-timeframe."""
     preco_atual = row[coluna_preco]
     score = 0
     motivos = []
@@ -852,19 +916,25 @@ def gerar_sinal(row, coluna_preco="close", macro_score=0, lstm_variacao=None,
         score += macro_score
         motivos.append(f"Macro {macro_score:+d}")
 
-    # --- LSTM com PESO REAL (±2 em vez de ±1) ---
+    # --- LSTM com PESO REAL ---
     if lstm_variacao is not None:
         if lstm_variacao > 1.0:
             score += 2; motivos.append(f"LSTM +{lstm_variacao:.1f}%")
         elif lstm_variacao < -1.0:
             score -= 2; motivos.append(f"LSTM {lstm_variacao:.1f}%")
 
+    # --- Sentimento ---
     if sentimento > 0.2:
         score += 1
         motivos.append(f"Sentimento +{sentimento:.2f}")
     elif sentimento < -0.2:
         score -= 1
         motivos.append(f"Sentimento {sentimento:.2f}")
+
+    # --- Multi-Timeframe (confluência) ---
+    if confluencia != 0:
+        score += confluencia
+        motivos.append(f"MTF {confluencia_motivo}")
 
     if score >= 7:    veredito = "🟢🟢 COMPRA FORTE"
     elif score >= 4:  veredito = "🟢 COMPRAR"
@@ -876,29 +946,6 @@ def gerar_sinal(row, coluna_preco="close", macro_score=0, lstm_variacao=None,
     else:             veredito = "🟡 AGUARDAR"
 
     return veredito, score, " | ".join(motivos)
-
-
-def calcular_alvo_stop(df, perfil="equilibrado", tipo="Ação"):
-    """Calcula alvo e stop. Para cripto (1h), usa multiplicadores maiores."""
-    cfg = PERFIS[perfil]
-    d = calcular_indicadores(df, coluna_preco="close")
-    ultima = d.iloc[-1]
-    preco = float(ultima["close"])
-    atr = float(ultima["ATR"]) if pd.notna(ultima["ATR"]) else preco * 0.02
-    casas = _precisao(preco)
-
-    # Cripto em 1h é mais volátil — usa multiplicadores maiores
-    if tipo == "Cripto":
-        mult_alvo = cfg["mult_alvo"] * 1.5
-        mult_stop = cfg["mult_stop"] * 1.5
-    else:
-        mult_alvo = cfg["mult_alvo"]
-        mult_stop = cfg["mult_stop"]
-
-    alvo = round(preco + mult_alvo * atr, casas)
-    stop = round(preco - mult_stop * atr, casas)
-    return preco, alvo, stop, atr
-
 
 # ==========================================
 # LSTM
@@ -1025,14 +1072,16 @@ def prever_proximo_preco(ativo, df, modelo=None, scaler=None):
 # ANÁLISE EM LOTE
 # ==========================================
 def analisar_ativo(nome, df, macro_score=0, lstm_variacao=None,
-                   perfil="equilibrado", sentimento=0.0):
+                   perfil="equilibrado", sentimento=0.0,
+                   confluencia=0, confluencia_motivo=""):
     if df is None or df.empty or len(df) < 30:
         return {"Ativo": nome, "Preço": None, "RSI": None,
                 "Score": None, "Veredito": "⚠️ Sem dados", "Motivos": "—",
                 "Macro_Score": macro_score,
                 "LSTM_variacao": lstm_variacao,
                 "LSTM_tendencia": None, "LSTM_confianca": None,
-                "Sentimento": sentimento}
+                "Sentimento": sentimento,
+                "MTF": 0, "MTF_Motivo": ""}
 
     d = calcular_indicadores(df, coluna_preco="close")
     ultima = d.iloc[-1]
@@ -1047,7 +1096,9 @@ def analisar_ativo(nome, df, macro_score=0, lstm_variacao=None,
                           macro_score=macro_ponderado,
                           lstm_variacao=lstm_variacao,
                           perfil=perfil,
-                          sentimento=sentimento)
+                          sentimento=sentimento,
+                          confluencia=confluencia,
+                          confluencia_motivo=confluencia_motivo)
 
     return {
         "Ativo":          nome,
@@ -1060,12 +1111,15 @@ def analisar_ativo(nome, df, macro_score=0, lstm_variacao=None,
         "LSTM_tendencia": None,
         "LSTM_confianca": None,
         "Sentimento":     round(sentimento, 3),
+        "MTF":            confluencia,
+        "MTF_Motivo":     confluencia_motivo,
         "Motivos":        m,
     }
 
 
 def _analisar_com_lstm(nome, df, treinar=True, macro_score=0,
-                       perfil="equilibrado", sentimento=0.0):
+                       perfil="equilibrado", sentimento=0.0,
+                       confluencia=0, confluencia_motivo=""):
     lstm_variacao = None
     lstm_resultado = None
 
@@ -1082,7 +1136,9 @@ def _analisar_com_lstm(nome, df, treinar=True, macro_score=0,
 
     resultado = analisar_ativo(nome, df, macro_score=macro_score,
                                 lstm_variacao=lstm_variacao, perfil=perfil,
-                                sentimento=sentimento)
+                                sentimento=sentimento,
+                                confluencia=confluencia,
+                                confluencia_motivo=confluencia_motivo)
 
     if lstm_resultado:
         resultado["LSTM_tendencia"] = lstm_resultado["tendencia"]
@@ -1109,30 +1165,57 @@ def rodar_watchlist_completa(treinar_lstm_flag=False, perfil=None):
     resultados = []
     dfs = {}
 
+    print("   🔬 Coletando multi-timeframe...")
+    # Cripto
     for nome in CRIPTO_WATCHLIST:
         print(f"   🔎 {nome}")
         df = buscar_cripto(nome, periodo="1mo", intervalo="1h")
         dfs[nome] = df
         sent = sentimentos.get(nome, 0.0)
+
+        # MTF
+        try:
+            dfs_mtf = buscar_mtf(nome, tipo="Cripto")
+            confluencia, confluencia_motivo = calcular_confluencia(dfs_mtf)
+        except Exception as e:
+            print(f"      ⚠️ MTF falhou {nome}: {e}")
+            confluencia, confluencia_motivo = 0, ""
+
         resultados.append(_analisar_com_lstm(nome, df,
                                               treinar=treinar_lstm_flag,
                                               macro_score=macro_score,
                                               perfil=perfil,
-                                              sentimento=sent))
+                                              sentimento=sent,
+                                              confluencia=confluencia,
+                                              confluencia_motivo=confluencia_motivo))
         time.sleep(0.3)
 
+    # Ações
     for nome, ticker in ACOES_WATCHLIST.items():
         print(f"   🔎 {nome}")
         df = buscar_acao(ticker, periodo="2y", intervalo="1d")
         dfs[nome] = df
         sent = sentimentos.get(nome, 0.0)
+
+        # MTF
+        try:
+            dfs_mtf = buscar_mtf(nome, tipo="Ação")
+            confluencia, confluencia_motivo = calcular_confluencia(dfs_mtf)
+        except Exception as e:
+            print(f"      ⚠️ MTF falhou {nome}: {e}")
+            confluencia, confluencia_motivo = 0, ""
+
         resultados.append(_analisar_com_lstm(nome, df,
                                               treinar=treinar_lstm_flag,
                                               macro_score=macro_score,
                                               perfil=perfil,
-                                              sentimento=sent))
+                                              sentimento=sent,
+                                              confluencia=confluencia,
+                                              confluencia_motivo=confluencia_motivo))
+        time.sleep(0.3)
 
     return pd.DataFrame(resultados), dfs
+
 
 
 # ==========================================
@@ -1546,7 +1629,7 @@ def main():
     print("📊 SINAIS POR ATIVO")
     print("=" * 75)
     cols = ["Ativo", "Preço", "RSI", "Score", "Veredito",
-            "LSTM_variacao", "LSTM_tendencia", "Macro_Score", "Sentimento"]
+            "LSTM_variacao", "LSTM_tendencia", "Macro_Score", "Sentimento", "MTF"]
     cols = [c for c in cols if c in tabela.columns]
     print(tabela[cols].to_string(index=False))
 
