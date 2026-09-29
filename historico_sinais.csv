@@ -2459,3 +2459,13 @@ DataHora,Ativo,Preco,RSI,Score,Veredito,LSTM_variacao,LSTM_tendencia,Macro_Score
 2026-09-29 00:22:51,ITUB4,41.71,43.9,-2,🟡 AGUARDAR,0.29,📈 ALTA,-2,RSI 44 baixo | SMA9>SMA21 | Acima SMA50 | MACD- | Macro -2 | MTF BAIXA (2/3) [maior:↑ medio:↓ menor:↓],0.006,-2.0
 2026-09-29 00:22:51,BBAS3,21.49,38.4,1,🟡 AGUARDAR,2.09,📈 ALTA,-2,RSI 38 baixo | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro -2 | LSTM +2.1% | MTF BAIXA (2/3) [maior:↑ medio:↓ menor:↓],0.039,-2.0
 2026-09-29 00:22:51,WEGE3,50.12,34.3,0,🟡 AGUARDAR,2.32,📈 ALTA,-2,RSI 34 sobrevendido | SMA9<SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro -2 | LSTM +2.3% | MTF BAIXA (3/3) [maior:↓ medio:↓ menor:↓],-0.012,-2.0
+2026-09-29 01:16:11,BTC,82973.82,50.9,-3,🔴 VENDER,0.36,📈 ALTA,-1,RSI 51 neutro | SMA9>SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro -1,-0.036,0.0
+2026-09-29 01:16:11,ETH,2667.1,54.3,-5,🔴 VENDER,0.58,📈 ALTA,-1,RSI 54 neutro | SMA9>SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro -1 | MTF BAIXA (2/3) [maior:↓ medio:↑ menor:↓],-0.018,-2.0
+2026-09-29 01:16:11,SOL,117.43,44.4,-5,🔴 VENDER,1.86,📈 ALTA,-1,RSI 44 baixo (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro -1 | LSTM +1.9% | MTF BAIXA (3/3) [maior:↓ medio:↓ menor:↓],-0.023,-2.0
+2026-09-29 01:16:11,BNB,759.2,47.8,-5,🔴 VENDER,0.64,📈 ALTA,-1,RSI 48 neutro | SMA9>SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro -1 | MTF BAIXA (2/3) [maior:↓ medio:↑ menor:↓],0.0,-2.0
+2026-09-29 01:16:11,ADA,0.2443,48.7,-3,🔴 VENDER,0.72,📈 ALTA,-1,RSI 49 neutro | SMA9>SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro -1 | MTF BAIXA (2/3) [maior:↓ medio:↑ menor:↓],0.0,-2.0
+2026-09-29 01:16:11,PETR4,48.72,53.5,-2,🟡 AGUARDAR,-0.92,📉 QUEDA,-2,RSI 54 neutro | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro -2 | MTF BAIXA (2/3) [maior:↑ medio:↓ menor:↓],-0.071,-2.0
+2026-09-29 01:16:11,VALE3,71.16,18.8,2,🟡 AGUARDAR,3.7,📈 ALTA,-2,RSI 19 sobrevendido | SMA9<SMA21 | Abaixo SMA50 | MACD- | Macro -2 | LSTM +3.7% | MTF ALTA (2/3) [maior:↓ medio:↑ menor:↑],-0.021,2.0
+2026-09-29 01:16:11,ITUB4,41.71,43.9,-2,🟡 AGUARDAR,0.29,📈 ALTA,-2,RSI 44 baixo | SMA9>SMA21 | Acima SMA50 | MACD- | Macro -2 | MTF BAIXA (2/3) [maior:↑ medio:↓ menor:↓],0.006,-2.0
+2026-09-29 01:16:11,BBAS3,21.49,38.4,1,🟡 AGUARDAR,2.09,📈 ALTA,-2,RSI 38 baixo | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro -2 | LSTM +2.1% | MTF BAIXA (2/3) [maior:↑ medio:↓ menor:↓],0.039,-2.0
+2026-09-29 01:16:11,WEGE3,50.12,34.3,0,🟡 AGUARDAR,2.32,📈 ALTA,-2,RSI 34 sobrevendido | SMA9<SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro -2 | LSTM +2.3% | MTF BAIXA (3/3) [maior:↓ medio:↓ menor:↓],-0.012,-2.0
