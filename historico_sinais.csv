@@ -2939,3 +2939,13 @@ DataHora,Ativo,Preco,RSI,Score,Veredito,LSTM_variacao,LSTM_tendencia,Macro_Score
 2026-09-30 15:04:01,ITUB4,43.58,60.0,0,🚫 BLOQUEADO,-3.95,📉 QUEDA,-1,LSTM -4.0% (queda forte),0.036,2.0
 2026-09-30 15:04:01,BBAS3,22.58,47.7,0,🚫 BLOQUEADO,-4.53,📉 QUEDA,-1,LSTM -4.5% (queda forte),0.017,2.0
 2026-09-30 15:04:01,WEGE3,50.02,34.8,1,🟡 AGUARDAR,2.38,📈 ALTA,-1,RSI 35 sobrevendido | SMA9<SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro -1 | LSTM +2.4% | MTF BAIXA (3/3) [maior:↓ medio:↓ menor:↓],-0.026,-2.0
+2026-09-30 15:33:04,BTC,84107.76,57.1,0,🟡 AGUARDAR,-0.67,📉 QUEDA,-1,RSI 57 alto (atenuado) | SMA9>SMA21 | Acima SMA50 | MACD+ | Bônus tendência | Macro -1 | MTF BAIXA (2/3) [maior:↓ medio:↑ menor:↓],-0.038,-2.0
+2026-09-30 15:33:04,ETH,2683.11,53.0,2,🟡 AGUARDAR,0.47,📈 ALTA,-1,RSI 53 neutro | SMA9>SMA21 | Abaixo SMA50 | MACD+ | Macro -1 | MTF ALTA (2/3) [maior:↑ medio:↑ menor:↓],0.031,2.0
+2026-09-30 15:33:04,SOL,119.04,47.2,3,🟢 COMPRAR,1.04,📈 ALTA,-1,RSI 47 neutro | SMA9>SMA21 | Acima SMA50 | MACD+ | Bônus tendência | Macro -1 | LSTM +1.0% | MTF BAIXA (2/3) [maior:↓ medio:↑ menor:↓],-0.023,-2.0
+2026-09-30 15:33:04,BNB,768.0,56.0,0,🟡 AGUARDAR,-0.25,📉 QUEDA,-1,RSI 56 alto (atenuado) | SMA9>SMA21 | Acima SMA50 | MACD+ | Bônus tendência | Macro -1 | MTF BAIXA (2/3) [maior:↓ medio:↑ menor:↓],0.0,-2.0
+2026-09-30 15:33:04,ADA,0.2459,50.6,0,🟡 AGUARDAR,1.35,📈 ALTA,-1,RSI 51 neutro | SMA9>SMA21 | Abaixo SMA50 | MACD+ | Macro -1 | LSTM +1.4% | MTF BAIXA (2/3) [maior:↓ medio:↑ menor:↓],0.0,-2.0
+2026-09-30 15:33:04,PETR4,49.54,52.4,0,🚫 BLOQUEADO,-2.8,📉 QUEDA,-1,LSTM -2.8% (queda forte),-0.009,2.0
+2026-09-30 15:33:04,VALE3,69.86,18.9,-4,🔴 VENDER,4.8,📈 ALTA,-1,RSI 19 sobrevendido (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro -1 | LSTM +4.8% | MTF BAIXA (3/3) [maior:↓ medio:↓ menor:↓],0.025,-2.0
+2026-09-30 15:33:04,ITUB4,43.97,62.4,0,🚫 BLOQUEADO,-4.8,📉 QUEDA,-1,LSTM -4.8% (queda forte),0.036,2.0
+2026-09-30 15:33:04,BBAS3,22.62,48.1,0,🚫 BLOQUEADO,-4.7,📉 QUEDA,-1,LSTM -4.7% (queda forte),0.017,2.0
+2026-09-30 15:33:04,WEGE3,50.05,34.9,1,🟡 AGUARDAR,2.32,📈 ALTA,-1,RSI 35 sobrevendido | SMA9<SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro -1 | LSTM +2.3% | MTF BAIXA (3/3) [maior:↓ medio:↓ menor:↓],-0.026,-2.0
