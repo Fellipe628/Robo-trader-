@@ -3069,3 +3069,13 @@ DataHora,Ativo,Preco,RSI,Score,Veredito,LSTM_variacao,LSTM_tendencia,Macro_Score
 2026-09-30 19:41:14,ITUB4,44.49,65.2,0,🚫 BLOQUEADO,-5.92,📉 QUEDA,-1,LSTM -5.9% (queda forte),0.036,2.0
 2026-09-30 19:41:14,BBAS3,22.97,51.6,0,🚫 BLOQUEADO,-6.15,📉 QUEDA,-1,LSTM -6.2% (queda forte),0.017,2.0
 2026-09-30 19:41:14,WEGE3,49.43,32.1,2,🟢 COMPRAR (conf.),3.6,📈 ALTA,-1,RSI 32 sobrevendido | SMA9<SMA21 | Acima SMA50 | MACD- | Banda inf | Bônus tendência | Macro -1 | LSTM +3.6% | MTF BAIXA (3/3) [maior:↓ medio:↓ menor:↓],-0.026,-2.0
+2026-09-30 19:54:39,BTC,83498.44,54.3,-3,🔴 VENDER,0.28,📈 ALTA,0,RSI 54 neutro | SMA9>SMA21 | Abaixo SMA50 | MACD- | MTF BAIXA (2/3) [maior:↓ medio:↑ menor:↓],-0.038,-2.0
+2026-09-30 19:54:39,ETH,2667.84,52.0,-4,🔴 VENDER,0.72,📈 ALTA,0,RSI 52 neutro | SMA9>SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | MTF BAIXA (2/3) [maior:↓ medio:↑ menor:↓],0.031,-2.0
+2026-09-30 19:54:39,SOL,117.28,47.0,-1,🟡 AGUARDAR,2.55,📈 ALTA,0,RSI 47 neutro | SMA9>SMA21 | Abaixo SMA50 | MACD- | LSTM +2.5% | MTF BAIXA (2/3) [maior:↓ medio:↑ menor:↓],-0.023,-2.0
+2026-09-30 19:54:39,BNB,764.62,60.0,-1,🟡 AGUARDAR,0.49,📈 ALTA,0,RSI 60 alto (atenuado) | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | MTF BAIXA (2/3) [maior:↓ medio:↑ menor:↓],0.0,-2.0
+2026-09-30 19:54:39,ADA,0.2417,48.7,-2,🟡 AGUARDAR,2.45,📈 ALTA,0,RSI 49 neutro | SMA9>SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | LSTM +2.5% | MTF BAIXA (2/3) [maior:↓ medio:↑ menor:↓],0.0,-2.0
+2026-09-30 19:54:39,PETR4,49.37,51.5,0,🚫 BLOQUEADO,-2.47,📉 QUEDA,0,LSTM -2.5% (queda forte),-0.009,2.0
+2026-09-30 19:54:39,VALE3,69.78,18.4,-3,🔴 VENDER,4.92,📈 ALTA,0,RSI 18 sobrevendido (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | LSTM +4.9% | MTF BAIXA (3/3) [maior:↓ medio:↓ menor:↓],0.025,-2.0
+2026-09-30 19:54:39,ITUB4,44.58,65.6,0,🚫 BLOQUEADO,-6.1,📉 QUEDA,0,LSTM -6.1% (queda forte),0.036,2.0
+2026-09-30 19:54:39,BBAS3,23.02,52.1,0,🚫 BLOQUEADO,-6.36,📉 QUEDA,0,LSTM -6.4% (queda forte),0.017,2.0
+2026-09-30 19:54:39,WEGE3,49.33,31.7,0,🟡 AGUARDAR,3.81,📈 ALTA,0,RSI 32 sobrevendido | SMA9<SMA21 | Abaixo SMA50 | MACD- | Banda inf | LSTM +3.8% | MTF BAIXA (3/3) [maior:↓ medio:↓ menor:↓],-0.026,-2.0
