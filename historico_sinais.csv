@@ -2919,3 +2919,13 @@ DataHora,Ativo,Preco,RSI,Score,Veredito,LSTM_variacao,LSTM_tendencia,Macro_Score
 2026-09-30 14:17:40,ITUB4,43.18,57.2,0,🚫 BLOQUEADO,-3.06,📉 QUEDA,-1,LSTM -3.1% (queda forte),0.036,2.0
 2026-09-30 14:17:40,BBAS3,22.44,46.2,0,🚫 BLOQUEADO,-3.93,📉 QUEDA,-1,LSTM -3.9% (queda forte),0.017,2.0
 2026-09-30 14:17:40,WEGE3,49.88,34.1,1,🟡 AGUARDAR,2.67,📈 ALTA,-1,RSI 34 sobrevendido | SMA9<SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro -1 | LSTM +2.7% | MTF BAIXA (3/3) [maior:↓ medio:↓ menor:↓],-0.026,-2.0
+2026-09-30 14:45:35,BTC,83546.55,51.3,2,🟡 AGUARDAR,-0.09,📉 QUEDA,-1,RSI 51 neutro | SMA9>SMA21 | Abaixo SMA50 | MACD+ | Macro -1 | MTF ALTA (2/3) [maior:↓ medio:↑ menor:↑],-0.038,2.0
+2026-09-30 14:45:35,ETH,2673.83,50.9,2,🟡 AGUARDAR,0.75,📈 ALTA,-1,RSI 51 neutro | SMA9>SMA21 | Abaixo SMA50 | MACD+ | Macro -1 | MTF ALTA (3/3) [maior:↑ medio:↑ menor:↑],0.031,2.0
+2026-09-30 14:45:35,SOL,118.58,46.2,4,🟢 COMPRAR,1.38,📈 ALTA,-1,RSI 46 neutro | SMA9>SMA21 | Abaixo SMA50 | MACD+ | Macro -1 | LSTM +1.4% | MTF ALTA (2/3) [maior:↓ medio:↑ menor:↑],-0.023,2.0
+2026-09-30 14:45:35,BNB,764.64,54.8,5,🟢 COMPRAR,0.07,📈 ALTA,-1,RSI 55 neutro | SMA9>SMA21 | Acima SMA50 | MACD+ | Bônus tendência | Macro -1 | MTF ALTA (2/3) [maior:↓ medio:↑ menor:↑],0.0,2.0
+2026-09-30 14:45:35,ADA,0.2439,47.9,4,🟢 COMPRAR,2.14,📈 ALTA,-1,RSI 48 neutro | SMA9>SMA21 | Abaixo SMA50 | MACD+ | Macro -1 | LSTM +2.1% | MTF ALTA (2/3) [maior:↓ medio:↑ menor:↑],0.0,2.0
+2026-09-30 14:45:35,PETR4,49.62,52.8,0,🚫 BLOQUEADO,-2.96,📉 QUEDA,-1,LSTM -3.0% (queda forte),-0.009,2.0
+2026-09-30 14:45:35,VALE3,70.32,21.6,-4,🔴 VENDER,4.11,📈 ALTA,-1,RSI 22 sobrevendido (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro -1 | LSTM +4.1% | MTF BAIXA (3/3) [maior:↓ medio:↓ menor:↓],0.025,-2.0
+2026-09-30 14:45:35,ITUB4,43.37,58.6,0,🚫 BLOQUEADO,-3.49,📉 QUEDA,-1,LSTM -3.5% (queda forte),0.036,2.0
+2026-09-30 14:45:35,BBAS3,22.62,48.1,0,🚫 BLOQUEADO,-4.7,📉 QUEDA,-1,LSTM -4.7% (queda forte),0.017,2.0
+2026-09-30 14:45:35,WEGE3,50.07,35.0,0,🟡 AGUARDAR,2.28,📈 ALTA,-1,RSI 35 baixo | SMA9<SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro -1 | LSTM +2.3% | MTF BAIXA (3/3) [maior:↓ medio:↓ menor:↓],-0.026,-2.0
