@@ -1,14 +1,14 @@
 # ==========================================
-# ROBÔ TRADER — GitHub Actions (v5)
-# LSTM + Circuit breaker + Let winners run
-# Confirmação de stop + Multi-Timeframe
+# ROBÔ TRADER — GitHub Actions (v6)
+# Cripto 4h + MTF maior + Reversão confirmada
+# Horário de mercado B3 + Watchlist expandida
 # ==========================================
 import os
 import time
 import requests
 import pandas as pd
 import json
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 # --- Configurações gerais ---
 PASTA         = "."
@@ -19,6 +19,7 @@ ARQUIVO_COOLDOWN = f"{PASTA}/cooldowns.csv"
 ARQUIVO_SENTIMENTO = f"{PASTA}/sentimento_cache.json"
 ARQUIVO_CIRCUIT = f"{PASTA}/circuit_breaker.json"
 ARQUIVO_STOPS_PEND = f"{PASTA}/stops_pendentes.csv"
+ARQUIVO_REVERSOES_PEND = f"{PASTA}/reversoes_pendentes.csv"
 COOLDOWN_HORAS   = 6
 
 # --- Circuit Breaker ---
@@ -26,6 +27,15 @@ STOPS_24H_CAUTELOSO    = 2
 STOPS_24H_DEFENSIVO    = 3
 PAUSA_DEFENSIVO_HORAS  = 12
 JANELA_STOPS_HORAS     = 24
+
+# --- Regras específicas de Cripto ---
+CRIPTO_TEMPO_MIN_REVERSAO_H = 6      # tempo mínimo antes de aceitar reversão
+CRIPTO_SCORE_MIN_EXTRA      = 1      # +1 no score mínimo para cripto (total 4)
+CRIPTO_MULT_STOP_EXTRA      = 1.33   # multiplica mult_stop por 1.33 (ATR × 2)
+
+# --- Horário de mercado B3 ---
+B3_HORA_ABERTURA = 9.75    # 09:45 BRT
+B3_HORA_FECHAMENTO = 17.5  # 17:30 BRT
 
 # --- Telegram ---
 TELEGRAM_TOKEN   = os.environ.get("TELEGRAM_TOKEN")
@@ -42,11 +52,18 @@ TREINAR_LSTM = os.environ.get("TREINAR_LSTM", "false").lower() == "true"
 # --- Watchlists ---
 CRIPTO_WATCHLIST = ["BTC", "ETH", "SOL", "BNB", "ADA"]
 ACOES_WATCHLIST = {
+    # Originais
     "PETR4":  "PETR4.SA",
     "VALE3":  "VALE3.SA",
     "ITUB4":  "ITUB4.SA",
     "BBAS3":  "BBAS3.SA",
     "WEGE3":  "WEGE3.SA",
+    # Novas
+    "ITSA4":  "ITSA4.SA",
+    "BBDC4":  "BBDC4.SA",
+    "B3SA3":  "B3SA3.SA",
+    "PRIO3":  "PRIO3.SA",
+    "ABEV3":  "ABEV3.SA",
 }
 
 CRIPTO_YF = {
@@ -64,11 +81,18 @@ MACRO_TICKERS = {
 }
 
 QUERIES_SENTIMENTO = {
+    # Ações
     "PETR4": "Petrobras",
     "VALE3": "Vale",
     "ITUB4": "Itaú",
     "BBAS3": "Banco do Brasil",
     "WEGE3": "WEG",
+    "ITSA4": "Itaúsa",
+    "BBDC4": "Bradesco",
+    "B3SA3": "B3 Bolsa",
+    "PRIO3": "PetroRio",
+    "ABEV3": "Ambev",
+    # Cripto
     "BTC":   "Bitcoin",
     "ETH":   "Ethereum",
     "SOL":   "Solana",
@@ -78,7 +102,7 @@ QUERIES_SENTIMENTO = {
 
 # --- Parâmetros de trading ---
 VALOR_POR_TRADE = 1000
-MAX_POSICOES    = 5
+MAX_POSICOES    = 7    # Aumentado (eram 5) porque agora tem mais ativos
 
 # --- Perfis ---
 PERFIS = {
@@ -134,6 +158,24 @@ def _precisao(preco):
         return 3
     else:
         return 4
+
+
+def _agora_brt():
+    """Retorna datetime atual no fuso BRT (UTC-3)."""
+    return datetime.now(timezone.utc) - timedelta(hours=3)
+
+
+def _dentro_horario_mercado():
+    """True se for dia útil e estiver entre 09:45 e 17:30 BRT."""
+    agora = _agora_brt()
+    if agora.weekday() >= 5:  # sábado (5) ou domingo (6)
+        return False
+    hora_decimal = agora.hour + agora.minute / 60
+    return B3_HORA_ABERTURA <= hora_decimal <= B3_HORA_FECHAMENTO
+
+
+def _e_cripto(ativo):
+    return ativo in CRIPTO_WATCHLIST
 
 
 # ==========================================
@@ -527,6 +569,44 @@ def remover_stop_pendente(ativo):
     df = df[df["Ativo"] != ativo]
     _salvar_stops_pendentes(df)
 
+
+# ==========================================
+# REVERSÕES PENDENTES (confirmação dupla)
+# ==========================================
+def _carregar_reversoes_pendentes():
+    if os.path.exists(ARQUIVO_REVERSOES_PEND):
+        try:
+            return pd.read_csv(ARQUIVO_REVERSOES_PEND)
+        except Exception:
+            pass
+    return pd.DataFrame(columns=["Ativo", "Data_Pendencia"])
+
+
+def _salvar_reversoes_pendentes(df):
+    df.to_csv(ARQUIVO_REVERSOES_PEND, index=False)
+
+
+def registrar_reversao_pendente(ativo):
+    df = _carregar_reversoes_pendentes()
+    df = df[df["Ativo"] != ativo]
+    nova = pd.DataFrame([{
+        "Ativo": ativo,
+        "Data_Pendencia": datetime.now().isoformat(),
+    }])
+    df = pd.concat([df, nova], ignore_index=True)
+    _salvar_reversoes_pendentes(df)
+
+
+def reversao_esta_pendente(ativo):
+    df = _carregar_reversoes_pendentes()
+    return not df[df["Ativo"] == ativo].empty
+
+
+def remover_reversao_pendente(ativo):
+    df = _carregar_reversoes_pendentes()
+    df = df[df["Ativo"] != ativo]
+    _salvar_reversoes_pendentes(df)
+
 # ==========================================
 # SENTIMENTO (APITube + Cache diário)
 # ==========================================
@@ -596,18 +676,24 @@ def obter_sentimento(ativo, forcar=False):
 
 
 def obter_sentimento_todos(forcar=False):
+    """Busca sentimento só dos ativos que serão analisados."""
     if not _sentimento_ok:
-        return {ativo: 0.0 for ativo in QUERIES_SENTIMENTO}
+        return {}
+    ativos_para_buscar = []
+    if _dentro_horario_mercado():
+        ativos_para_buscar = list(QUERIES_SENTIMENTO.keys())
+    else:
+        ativos_para_buscar = CRIPTO_WATCHLIST
+
     cache = _carregar_cache_sentimento()
     hoje = datetime.now().strftime("%Y-%m-%d")
-    todos = list(QUERIES_SENTIMENTO.keys())
-    cache_ok = all(cache.get(a, {}).get("data") == hoje for a in todos)
+    cache_ok = all(cache.get(a, {}).get("data") == hoje for a in ativos_para_buscar)
     if cache_ok and not forcar:
         print("   💾 Usando cache de sentimento do dia")
-        return {a: cache[a]["score"] for a in todos}
+        return {a: cache[a]["score"] for a in ativos_para_buscar}
     print("   🌐 Buscando sentimento atualizado...")
     resultado = {}
-    for ativo in todos:
+    for ativo in ativos_para_buscar:
         print(f"      📰 {ativo}...")
         resultado[ativo] = obter_sentimento(ativo, forcar=True)
         time.sleep(0.5)
@@ -654,7 +740,8 @@ def _baixar_yahoo(ticker, periodo="6mo", intervalo="1d"):
         return None
 
 
-def buscar_cripto(moeda="BTC", periodo="1mo", intervalo="1h"):
+def buscar_cripto(moeda="BTC", periodo="1mo", intervalo="4h"):
+    """Cripto agora usa candle de 4h (era 1h)."""
     ticker = CRIPTO_YF.get(moeda.upper())
     if not ticker:
         return None
@@ -666,13 +753,17 @@ def buscar_acao(ticker="PETR4.SA", periodo="2y", intervalo="1d"):
 
 
 def buscar_mtf(ativo, tipo="Ação"):
+    """Multi-Timeframe:
+    - Cripto: 1D + 4H + 1H (era 4H + 1H + 15m)
+    - Ação:  1D + 4H + 1H
+    """
     if tipo == "Cripto":
         ticker = CRIPTO_YF.get(ativo.upper())
         if not ticker:
             return None
-        df_maior = _baixar_yahoo(ticker, periodo="1mo", intervalo="4h")
-        df_medio = _baixar_yahoo(ticker, periodo="1mo", intervalo="1h")
-        df_menor = _baixar_yahoo(ticker, periodo="5d",  intervalo="15m")
+        df_maior = _baixar_yahoo(ticker, periodo="3mo", intervalo="1d")
+        df_medio = _baixar_yahoo(ticker, periodo="1mo", intervalo="4h")
+        df_menor = _baixar_yahoo(ticker, periodo="1mo", intervalo="1h")
     else:
         ticker = ACOES_WATCHLIST.get(ativo, f"{ativo}.SA")
         df_maior = _baixar_yahoo(ticker, periodo="6mo", intervalo="1d")
@@ -834,7 +925,8 @@ def calcular_indicadores(df, coluna_preco="close"):
 
 
 def gerar_sinal(row, coluna_preco="close", macro_score=0, lstm_variacao=None,
-                perfil="equilibrado", sentimento=0.0, confluencia=0, confluencia_motivo=""):
+                perfil="equilibrado", sentimento=0.0, confluencia=0,
+                confluencia_motivo="", tipo="Ação"):
     preco_atual = row[coluna_preco]
     score = 0
     motivos = []
@@ -935,6 +1027,7 @@ def gerar_sinal(row, coluna_preco="close", macro_score=0, lstm_variacao=None,
 
 
 def calcular_alvo_stop(df, perfil="equilibrado", tipo="Ação"):
+    """Cripto: ATR × 2 no stop (era 1,5). Alvo mantém 1,5×."""
     cfg = PERFIS[perfil]
     d = calcular_indicadores(df, coluna_preco="close")
     ultima = d.iloc[-1]
@@ -943,11 +1036,11 @@ def calcular_alvo_stop(df, perfil="equilibrado", tipo="Ação"):
     casas = _precisao(preco)
 
     if tipo == "Cripto":
-        mult_alvo = cfg["mult_alvo"] * 1.5
-        mult_stop = cfg["mult_stop"] * 1.5
+        mult_alvo = cfg["mult_alvo"] * 1.5       # 4.5
+        mult_stop = cfg["mult_stop"] * 2.0       # 3.0 (era 1.5)
     else:
-        mult_alvo = cfg["mult_alvo"]
-        mult_stop = cfg["mult_stop"]
+        mult_alvo = cfg["mult_alvo"]             # 3.0
+        mult_stop = cfg["mult_stop"]             # 1.5
 
     alvo = round(preco + mult_alvo * atr, casas)
     stop = round(preco - mult_stop * atr, casas)
@@ -1093,7 +1186,7 @@ def analisar_ativo(nome, df, macro_score=0, lstm_variacao=None,
     d = calcular_indicadores(df, coluna_preco="close")
     ultima = d.iloc[-1]
 
-    tipo = "Cripto" if nome in CRIPTO_WATCHLIST else "Ação"
+    tipo = "Cripto" if _e_cripto(nome) else "Ação"
     if tipo == "Cripto":
         macro_ponderado = int(round(macro_score * 0.6))
     else:
@@ -1105,7 +1198,8 @@ def analisar_ativo(nome, df, macro_score=0, lstm_variacao=None,
                           perfil=perfil,
                           sentimento=sentimento,
                           confluencia=confluencia,
-                          confluencia_motivo=confluencia_motivo)
+                          confluencia_motivo=confluencia_motivo,
+                          tipo=tipo)
 
     return {
         "Ativo":          nome,
@@ -1156,8 +1250,16 @@ def _analisar_com_lstm(nome, df, treinar=True, macro_score=0,
 
 
 def rodar_watchlist_completa(treinar_lstm_flag=False, perfil=None):
+    """Roda análise — agora respeita o horário de mercado B3."""
     if perfil is None:
         perfil = PERFIL_ATIVO
+
+    # --- Verificação de horário ---
+    dentro_horario = _dentro_horario_mercado()
+    if dentro_horario:
+        print(f"   ⏰ Dentro do horário de mercado (BRT {_agora_brt().strftime('%H:%M')}) — analisando ações + cripto")
+    else:
+        print(f"   🌙 Fora do horário de mercado (BRT {_agora_brt().strftime('%H:%M')}) — só cripto")
 
     print("   🌍 Coletando contexto macro...")
     macro_dfs = buscar_macro()
@@ -1173,9 +1275,11 @@ def rodar_watchlist_completa(treinar_lstm_flag=False, perfil=None):
     dfs = {}
 
     print("   🔬 Coletando multi-timeframe...")
+
+    # --- Cripto (sempre, 24/7) ---
     for nome in CRIPTO_WATCHLIST:
         print(f"   🔎 {nome}")
-        df = buscar_cripto(nome, periodo="1mo", intervalo="1h")
+        df = buscar_cripto(nome, periodo="2mo", intervalo="4h")
         dfs[nome] = df
         sent = sentimentos.get(nome, 0.0)
 
@@ -1195,27 +1299,31 @@ def rodar_watchlist_completa(treinar_lstm_flag=False, perfil=None):
                                               confluencia_motivo=confluencia_motivo))
         time.sleep(0.3)
 
-    for nome, ticker in ACOES_WATCHLIST.items():
-        print(f"   🔎 {nome}")
-        df = buscar_acao(ticker, periodo="2y", intervalo="1d")
-        dfs[nome] = df
-        sent = sentimentos.get(nome, 0.0)
+    # --- Ações (só se dentro do horário de mercado) ---
+    if dentro_horario:
+        for nome, ticker in ACOES_WATCHLIST.items():
+            print(f"   🔎 {nome}")
+            df = buscar_acao(ticker, periodo="2y", intervalo="1d")
+            dfs[nome] = df
+            sent = sentimentos.get(nome, 0.0)
 
-        try:
-            dfs_mtf = buscar_mtf(nome, tipo="Ação")
-            confluencia, confluencia_motivo = calcular_confluencia(dfs_mtf)
-        except Exception as e:
-            print(f"      ⚠️ MTF falhou {nome}: {e}")
-            confluencia, confluencia_motivo = 0, ""
+            try:
+                dfs_mtf = buscar_mtf(nome, tipo="Ação")
+                confluencia, confluencia_motivo = calcular_confluencia(dfs_mtf)
+            except Exception as e:
+                print(f"      ⚠️ MTF falhou {nome}: {e}")
+                confluencia, confluencia_motivo = 0, ""
 
-        resultados.append(_analisar_com_lstm(nome, df,
-                                              treinar=treinar_lstm_flag,
-                                              macro_score=macro_score,
-                                              perfil=perfil,
-                                              sentimento=sent,
-                                              confluencia=confluencia,
-                                              confluencia_motivo=confluencia_motivo))
-        time.sleep(0.3)
+            resultados.append(_analisar_com_lstm(nome, df,
+                                                  treinar=treinar_lstm_flag,
+                                                  macro_score=macro_score,
+                                                  perfil=perfil,
+                                                  sentimento=sent,
+                                                  confluencia=confluencia,
+                                                  confluencia_motivo=confluencia_motivo))
+            time.sleep(0.3)
+    else:
+        print("   ⏭️ Pulando análise de ações (fora do horário)")
 
     return pd.DataFrame(resultados), dfs
 
@@ -1325,6 +1433,19 @@ def alerta_circuit_breaker(estado, stops_24h):
     enviar_telegram(msg)
 
 
+def alerta_reversao_pendente(ativo, preco_atual):
+    casas = _precisao(preco_atual)
+    msg = (
+        f"⚠️ *REVERSÃO PENDENTE*\n\n"
+        f"📌 Ativo: `{ativo}`\n"
+        f"💰 Preço atual: {preco_atual:,.{casas}f}\n\n"
+        f"🔴 Sinal de venda detectado (1ª confirmação)\n"
+        f"⏳ Aguardando 2ª confirmação no próximo ciclo\n"
+        f"⏰ {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+    )
+    enviar_telegram(msg)
+
+
 # ==========================================
 # AUTO-TRADING
 # ==========================================
@@ -1343,6 +1464,7 @@ def verificar_posicoes_abertas(tabela, dfs, perfil=None):
         if df is None or df.empty:
             continue
 
+        tipo = "Cripto" if _e_cripto(ativo) else "Ação"
         preco_atual = float(df["close"].iloc[-1])
         preco_compra = float(pos["Preco_Compra"])
         alvo = float(pos["Alvo"])
@@ -1401,6 +1523,7 @@ def verificar_posicoes_abertas(tabela, dfs, perfil=None):
                                  res["lucro_rs"], res["lucro_pct"], "🎯 Alvo")
                     resetar_stops_consecutivos()
                     registrar_cooldown(ativo, motivo="Alvo")
+                remover_reversao_pendente(ativo)
                 fechamentos.append(ativo)
                 continue
 
@@ -1415,6 +1538,7 @@ def verificar_posicoes_abertas(tabela, dfs, perfil=None):
                     registrar_cooldown(ativo, motivo="Stop")
                     registrar_stop_no_circuit()
                 remover_stop_pendente(ativo)
+                remover_reversao_pendente(ativo)
                 fechamentos.append(ativo)
                 continue
             else:
@@ -1429,13 +1553,49 @@ def verificar_posicoes_abertas(tabela, dfs, perfil=None):
         # --- Reversão técnica ---
         linha = tabela[tabela["Ativo"] == ativo]
         if not linha.empty and "VENDER" in str(linha.iloc[0]["Veredito"]):
-            res = registrar_venda(ativo, preco_atual, motivo="🔴 Reversão técnica")
-            if res:
-                alerta_venda(res["ativo"], res["preco_compra"], res["preco_venda"],
-                             res["lucro_rs"], res["lucro_pct"], "🔴 Reversão")
-                registrar_cooldown(ativo, motivo="Reversão")
-                registrar_stop_no_circuit()
-            fechamentos.append(ativo)
+            if tipo == "Cripto":
+                # Tempo mínimo de permanência
+                try:
+                    data_compra = datetime.strptime(pos["Data_Compra"], "%Y-%m-%d %H:%M")
+                    idade_h = (datetime.now() - data_compra).total_seconds() / 3600
+                except Exception:
+                    idade_h = 999
+
+                if idade_h < CRIPTO_TEMPO_MIN_REVERSAO_H:
+                    print(f"   ⏳ {ativo} reversão ignorada (idade {idade_h:.1f}h < "
+                          f"{CRIPTO_TEMPO_MIN_REVERSAO_H}h)")
+                    continue
+
+                # Cripto exige 2 confirmações
+                if reversao_esta_pendente(ativo):
+                    # 2ª confirmação → vende
+                    res = registrar_venda(ativo, preco_atual, motivo="🔴 Reversão técnica")
+                    if res:
+                        alerta_venda(res["ativo"], res["preco_compra"], res["preco_venda"],
+                                     res["lucro_rs"], res["lucro_pct"], "🔴 Reversão")
+                        registrar_cooldown(ativo, motivo="Reversão")
+                        registrar_stop_no_circuit()
+                    remover_reversao_pendente(ativo)
+                    fechamentos.append(ativo)
+                else:
+                    # 1ª confirmação → registra pendente
+                    registrar_reversao_pendente(ativo)
+                    alerta_reversao_pendente(ativo, preco_atual)
+                    print(f"   ⏳ {ativo} reversão pendente (1ª confirmação)")
+            else:
+                # Ação: vende imediatamente (comportamento antigo)
+                res = registrar_venda(ativo, preco_atual, motivo="🔴 Reversão técnica")
+                if res:
+                    alerta_venda(res["ativo"], res["preco_compra"], res["preco_venda"],
+                                 res["lucro_rs"], res["lucro_pct"], "🔴 Reversão")
+                    registrar_cooldown(ativo, motivo="Reversão")
+                    registrar_stop_no_circuit()
+                fechamentos.append(ativo)
+        else:
+            # Veredito não é mais VENDER → cancela pendência de reversão
+            if reversao_esta_pendente(ativo):
+                remover_reversao_pendente(ativo)
+                print(f"   ✅ {ativo} reversão cancelada (veredito mudou)")
 
     return fechamentos
 
@@ -1458,8 +1618,6 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
               f"({posicoes_abertas} abertas). Pulando novas aberturas.")
         return []
 
-    score_minimo = 3 + score_extra
-
     novas = []
     for _, row in tabela.iterrows():
         ativo = row["Ativo"]
@@ -1467,9 +1625,17 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
         if "COMPRA" not in veredito:
             continue
 
+        tipo = "Cripto" if _e_cripto(ativo) else "Ação"
+
+        # Score mínimo: +1 extra para cripto
+        score_minimo = 3 + score_extra
+        if tipo == "Cripto":
+            score_minimo += CRIPTO_SCORE_MIN_EXTRA
+
         score_ativo = row.get("Score")
         if score_ativo is not None and score_ativo < score_minimo:
-            print(f"   ⚠️ {ativo} score {score_ativo} < mínimo {score_minimo} (CB {estado_cb})")
+            print(f"   ⚠️ {ativo} score {score_ativo} < mínimo {score_minimo} "
+                  f"(CB {estado_cb}, tipo {tipo})")
             continue
 
         if em_cooldown(ativo):
@@ -1490,7 +1656,6 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
         if df is None or df.empty:
             continue
 
-        tipo = "Cripto" if ativo in CRIPTO_WATCHLIST else "Ação"
         preco, alvo, stop, atr = calcular_alvo_stop(df, perfil=perfil, tipo=tipo)
         casas = _precisao(preco)
         valor_trade = VALOR_POR_TRADE * tamanho_pct
@@ -1623,7 +1788,7 @@ def main():
 
 def _main_interno():
     print("=" * 75)
-    print("🤖 ROBÔ TRADER — CICLO GITHUB ACTIONS")
+    print("🤖 ROBÔ TRADER — CICLO GITHUB ACTIONS (v6)")
     print(f"📅 {datetime.now().strftime('%d/%m/%Y %H:%M')}")
     print(f"⚙️ Perfil: {PERFIL_ATIVO} | Modo: {'TREINO' if TREINAR_LSTM else 'CARREGAR'}")
     print(f"📰 Sentimento: {'ATIVO' if _sentimento_ok else 'DESATIVADO'}")
@@ -1642,15 +1807,19 @@ def _main_interno():
     print("\n🎯 Abrindo novas posições...\n")
     novas = abrir_novas_posicoes(tabela, dfs, perfil=PERFIL_ATIVO)
 
-    salvar_analise(tabela)
+    if not tabela.empty:
+        salvar_analise(tabela)
 
     print("\n" + "=" * 75)
     print("📊 SINAIS POR ATIVO")
     print("=" * 75)
-    cols = ["Ativo", "Preço", "RSI", "Score", "Veredito",
-            "LSTM_variacao", "LSTM_tendencia", "Macro_Score", "Sentimento", "MTF"]
-    cols = [c for c in cols if c in tabela.columns]
-    print(tabela[cols].to_string(index=False))
+    if not tabela.empty:
+        cols = ["Ativo", "Preço", "RSI", "Score", "Veredito",
+                "LSTM_variacao", "LSTM_tendencia", "Macro_Score", "Sentimento", "MTF"]
+        cols = [c for c in cols if c in tabela.columns]
+        print(tabela[cols].to_string(index=False))
+    else:
+        print("Nenhum ativo analisado neste ciclo.")
 
     print("\n" + "=" * 75)
     print("💼 PORTFÓLIO")
