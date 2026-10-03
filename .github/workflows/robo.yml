@@ -2,22 +2,28 @@ name: Robo Trader
 
 on:
   schedule:
-    - cron: '0 3 * * *'         # 00h BRT — checagem diária
-    - cron: '0 6 * * 1,4'       # 03h BRT segunda e quinta — TREINA LSTM
-    - cron: '0 9,10 * * *'      # 06h, 07h BRT
-    - cron: '0,30 11,12 * * *'  # 08h, 08h30, 09h, 09h30 BRT
-    - cron: '*/15 13-19 * * *'  # 10h-16h45 BRT (PICO)
-    - cron: '0 20-23 * * *'     # 17h-20h BRT
-    - cron: '0 0-1 * * *'       # 21h-22h BRT
-    - cron: '0 12 * * 6'        # 09h BRT sábado — RELATÓRIO SEMANAL
+    # ⭐ Treino noturno (3h BRT = 6h UTC) — TREINAR_LSTM=true
+    - cron: '0 6 * * *'
+    # Demais execuções do dia — TREINAR_LSTM=false (usa modelo salvo)
+    - cron: '0 3 * * *'
+    - cron: '0 9,10 * * *'
+    - cron: '0,30 11,12 * * *'
+    - cron: '*/15 13-19 * * *'
+    - cron: '0 20-23 * * *'
+    - cron: '0 0-1 * * *'
   workflow_dispatch:
+    inputs:
+      treinar_lstm:
+        description: 'Forçar treino do LSTM?'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
 
 permissions:
   contents: write
-
-concurrency:
-  group: robo-trader
-  cancel-in-progress: false
 
 jobs:
   robo:
@@ -30,42 +36,28 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
-      - name: Cache de pacotes
-        uses: actions/cache@v4
+      - name: Restaurar modelos LSTM (cache)
+        uses: actions/cache/restore@v4
         with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          path: modelos_lstm
+          key: lstm-models-${{ github.run_number }}
           restore-keys: |
-            ${{ runner.os }}-pip-
+            lstm-models-
 
       - name: Instalar dependências
         run: pip install -r requirements.txt
 
-      - name: Definir modo (treinar / relatório / normal)
+      - name: Definir modo (treino ou uso)
         id: modo
         run: |
-          # Detecta dia e hora UTC usando date (mais confiável que github.event.schedule)
-          DIA_SEMANA=$(date -u +%u)   # 1=seg, 4=qui, 6=sáb
-          HORA=$(date -u +%H)
-
-          echo "📅 Dia da semana (UTC): $DIA_SEMANA | Hora: $HORA"
-
-          # --- Modo TREINO: segunda ou quinta, 06h UTC (03h BRT) ---
-          if { [ "$DIA_SEMANA" = "1" ] || [ "$DIA_SEMANA" = "4" ]; } && [ "$HORA" = "06" ]; then
+          if [ "${{ github.event.schedule }}" = "0 6 * * *" ] || [ "${{ github.event.inputs.treinar_lstm }}" = "true" ]; then
             echo "treinar=true" >> $GITHUB_OUTPUT
-            echo "🎓 Modo TREINO ativado"
+            echo "🧠 Modo TREINO ativado"
           else
             echo "treinar=false" >> $GITHUB_OUTPUT
-            echo "💾 Modo CARREGAR LSTM salvo"
-          fi
-
-          # --- Modo RELATÓRIO: sábado, 12h UTC (09h BRT) ---
-          if [ "$DIA_SEMANA" = "6" ] && [ "$HORA" = "12" ]; then
-            echo "relatorio=true" >> $GITHUB_OUTPUT
-            echo "📊 Modo RELATÓRIO SEMANAL"
-          else
-            echo "relatorio=false" >> $GITHUB_OUTPUT
+            echo "📦 Modo USO (carrega modelo do cache)"
           fi
 
       - name: Rodar robô
@@ -73,15 +65,19 @@ jobs:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TREINAR_LSTM: ${{ steps.modo.outputs.treinar }}
-          MODO_RELATORIO: ${{ steps.modo.outputs.relatorio }}
-          APITUBE_KEY: ${{ secrets.APITUBE_KEY }}
         run: python robo.py
+
+      - name: Salvar modelos LSTM (cache)
+        if: steps.modo.outputs.treinar == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: modelos_lstm
+          key: lstm-models-${{ github.run_number }}
 
       - name: Salvar dados atualizados
         run: |
           git config user.name "robo-trader-bot"
           git config user.email "bot@robo-trader.local"
-          git add -A
-          git commit -m "🤖 Atualiza dados [skip ci]" || echo "Sem mudanças"
-          git pull --rebase origin main
+          git add portfolio.csv historico_sinais.csv cooldowns.csv circuit_breaker.json stops_pendentes.csv reversoes_pendentes.csv 2>/dev/null || true
+          git commit -m "🤖 Atualiza dados [skip ci]" || echo "Sem mudanças para commitar"
           git push
