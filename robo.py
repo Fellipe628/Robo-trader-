@@ -1,7 +1,7 @@
 # ==========================================
-# ROBÔ TRADER — GitHub Actions (v8.1)
+# ROBÔ TRADER — GitHub Actions (v8.2)
 # Cripto 4h + MTF + Macro (VIX/DXY) + LSTM + Trailing ATR
-# Treino automático noturno + ações só abrem no horário
+# Treino cripto 03h + Treino ações 10h (seg-sex)
 # ==========================================
 import os
 import time
@@ -664,9 +664,11 @@ def calcular_confluencia(dfs_mtf):
             if pd.isna(ultima["SMA_9"]) or pd.isna(ultima["SMA_21"]):
                 continue
             if ultima["SMA_9"] > ultima["SMA_21"]:
-                sinais.append(1); detalhes.append(f"{nome}:↑")
+                sinais.append(1)
+                detalhes.append(f"{nome}:↑")
             else:
-                sinais.append(-1); detalhes.append(f"{nome}:↓")
+                sinais.append(-1)
+                detalhes.append(f"{nome}:↓")
         except Exception:
             continue
     if len(sinais) < 2:
@@ -703,13 +705,17 @@ def calcular_contexto_macro(macro_dfs):
         var_5d = (float(dolar["close"].iloc[-1]) / float(dolar["close"].iloc[-6]) - 1) * 100
         contexto["detalhes"]["Dolar"] = round(var_5d, 2)
         if var_5d > 2.0:
-            contexto["score"] -= 2; contexto["resumo"].append(f"Dólar +{var_5d:.1f}% (ruim p/ ações)")
+            contexto["score"] -= 2
+            contexto["resumo"].append(f"Dólar +{var_5d:.1f}% (ruim p/ ações)")
         elif var_5d > 1.0:
-            contexto["score"] -= 1; contexto["resumo"].append(f"Dólar +{var_5d:.1f}%")
+            contexto["score"] -= 1
+            contexto["resumo"].append(f"Dólar +{var_5d:.1f}%")
         elif var_5d < -2.0:
-            contexto["score"] += 2; contexto["resumo"].append(f"Dólar {var_5d:.1f}% (bom p/ ações)")
+            contexto["score"] += 2
+            contexto["resumo"].append(f"Dólar {var_5d:.1f}% (bom p/ ações)")
         elif var_5d < -1.0:
-            contexto["score"] += 1; contexto["resumo"].append(f"Dólar {var_5d:.1f}%")
+            contexto["score"] += 1
+            contexto["resumo"].append(f"Dólar {var_5d:.1f}%")
 
     # --- S&P 500 ---
     sp = macro_dfs.get("SP500")
@@ -717,13 +723,17 @@ def calcular_contexto_macro(macro_dfs):
         var_5d = (float(sp["close"].iloc[-1]) / float(sp["close"].iloc[-6]) - 1) * 100
         contexto["detalhes"]["SP500"] = round(var_5d, 2)
         if var_5d < -3.0:
-            contexto["score"] -= 2; contexto["resumo"].append(f"S&P {var_5d:.1f}% (cautela global)")
+            contexto["score"] -= 2
+            contexto["resumo"].append(f"S&P {var_5d:.1f}% (cautela global)")
         elif var_5d < -1.5:
-            contexto["score"] -= 1; contexto["resumo"].append(f"S&P {var_5d:.1f}%")
+            contexto["score"] -= 1
+            contexto["resumo"].append(f"S&P {var_5d:.1f}%")
         elif var_5d > 3.0:
-            contexto["score"] += 2; contexto["resumo"].append(f"S&P +{var_5d:.1f}% (bom humor)")
+            contexto["score"] += 2
+            contexto["resumo"].append(f"S&P +{var_5d:.1f}% (bom humor)")
         elif var_5d > 1.5:
-            contexto["score"] += 1; contexto["resumo"].append(f"S&P +{var_5d:.1f}%")
+            contexto["score"] += 1
+            contexto["resumo"].append(f"S&P +{var_5d:.1f}%")
 
     # --- Ibovespa ---
     ibov = macro_dfs.get("Ibov")
@@ -731,9 +741,11 @@ def calcular_contexto_macro(macro_dfs):
         var_5d = (float(ibov["close"].iloc[-1]) / float(ibov["close"].iloc[-6]) - 1) * 100
         contexto["detalhes"]["Ibov"] = round(var_5d, 2)
         if var_5d < -3.0:
-            contexto["score"] -= 1; contexto["resumo"].append(f"Ibov {var_5d:.1f}%")
+            contexto["score"] -= 1
+            contexto["resumo"].append(f"Ibov {var_5d:.1f}%")
         elif var_5d > 3.0:
-            contexto["score"] += 1; contexto["resumo"].append(f"Ibov +{var_5d:.1f}%")
+            contexto["score"] += 1
+            contexto["resumo"].append(f"Ibov +{var_5d:.1f}%")
 
     # --- VIX ---
     vix = macro_dfs.get("VIX")
@@ -741,13 +753,17 @@ def calcular_contexto_macro(macro_dfs):
         valor_vix = float(vix["close"].iloc[-1])
         contexto["detalhes"]["VIX"] = round(valor_vix, 2)
         if valor_vix >= 35.0:
-            contexto["score"] -= 3; contexto["resumo"].append(f"VIX {valor_vix:.1f} (pânico)")
+            contexto["score"] -= 3
+            contexto["resumo"].append(f"VIX {valor_vix:.1f} (pânico)")
         elif valor_vix >= 25.0:
-            contexto["score"] -= 2; contexto["resumo"].append(f"VIX {valor_vix:.1f} (medo)")
+            contexto["score"] -= 2
+            contexto["resumo"].append(f"VIX {valor_vix:.1f} (medo)")
         elif valor_vix >= 20.0:
-            contexto["score"] -= 1; contexto["resumo"].append(f"VIX {valor_vix:.1f} (cautela)")
+            contexto["score"] -= 1
+            contexto["resumo"].append(f"VIX {valor_vix:.1f} (cautela)")
         elif valor_vix < 15.0:
-            contexto["score"] += 1; contexto["resumo"].append(f"VIX {valor_vix:.1f} (calmo)")
+            contexto["score"] += 1
+            contexto["resumo"].append(f"VIX {valor_vix:.1f} (calmo)")
 
     # --- DXY ---
     dxy = macro_dfs.get("DXY")
@@ -755,13 +771,17 @@ def calcular_contexto_macro(macro_dfs):
         var_5d = (float(dxy["close"].iloc[-1]) / float(dxy["close"].iloc[-6]) - 1) * 100
         contexto["detalhes"]["DXY"] = round(var_5d, 2)
         if var_5d > 1.5:
-            contexto["score"] -= 2; contexto["resumo"].append(f"DXY +{var_5d:.1f}% (risk-off)")
+            contexto["score"] -= 2
+            contexto["resumo"].append(f"DXY +{var_5d:.1f}% (risk-off)")
         elif var_5d > 0.7:
-            contexto["score"] -= 1; contexto["resumo"].append(f"DXY +{var_5d:.1f}%")
+            contexto["score"] -= 1
+            contexto["resumo"].append(f"DXY +{var_5d:.1f}%")
         elif var_5d < -1.5:
-            contexto["score"] += 2; contexto["resumo"].append(f"DXY {var_5d:.1f}% (risk-on)")
+            contexto["score"] += 2
+            contexto["resumo"].append(f"DXY {var_5d:.1f}% (risk-on)")
         elif var_5d < -0.7:
-            contexto["score"] += 1; contexto["resumo"].append(f"DXY {var_5d:.1f}%")
+            contexto["score"] += 1
+            contexto["resumo"].append(f"DXY {var_5d:.1f}%")
 
     contexto["score"] = max(-8, min(8, contexto["score"]))
     return contexto
@@ -1120,6 +1140,7 @@ def _analisar_com_lstm(nome, df, macro_score=0, perfil="equilibrado",
 
     return resultado
 
+
 def rodar_watchlist_completa(perfil=None):
     if perfil is None:
         perfil = PERFIL_ATIVO
@@ -1469,7 +1490,7 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
 
         tipo = "Cripto" if _e_cripto(ativo) else "Ação"
 
-        # NOVO: Bloqueia abertura de AÇÃO fora do horário (mesmo em modo treino)
+        # Bloqueia abertura de AÇÃO fora do horário de mercado
         if tipo == "Ação" and not _dentro_horario_mercado():
             continue
 
@@ -1629,7 +1650,7 @@ def main():
 
 def _main_interno():
     print("=" * 75)
-    print("🤖 ROBÔ TRADER — CICLO GITHUB ACTIONS (v8.1)")
+    print("🤖 ROBÔ TRADER — CICLO GITHUB ACTIONS (v8.2)")
     print(f"📅 {datetime.now().strftime('%d/%m/%Y %H:%M')}")
     print(f"⚙️ Perfil: {PERFIL_ATIVO}")
     print(f"🧠 LSTM: {'TREINAR + USAR' if TREINAR_LSTM else 'USAR SALVO (ou pular)'}")
