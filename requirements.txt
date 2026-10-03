@@ -1,6 +1,5 @@
 pandas
-numpy
 requests
-tensorflow==2.20.0
+tensorflow-cpu==2.15.1
 scikit-learn
 joblib
