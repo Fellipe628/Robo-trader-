@@ -76,9 +76,11 @@ CRIPTO_YF = {
 }
 
 MACRO_TICKERS = {
-    "Dolar":  "USDBRL=X",
-    "SP500":  "^GSPC",
-    "Ibov":   "^BVSP",
+    "Dolar":  "USDBRL=X",   # USD/BRL (dólar vs real)
+    "SP500":  "^GSPC",      # S&P 500
+    "Ibov":   "^BVSP",      # Ibovespa
+    "VIX":    "^VIX",       # NOVO v7: medo global (CBOE Volatility Index)
+    "DXY":    "DX-Y.NYB",   # NOVO v7: índice do dólar global (risk-on/off)
 }
 
 QUERIES_SENTIMENTO = {
@@ -859,10 +861,16 @@ def buscar_macro():
 
 
 def calcular_contexto_macro(macro_dfs):
+    """
+    v7 — Contexto macro expandido.
+    Adicionado: VIX (medo global) e DXY (força do dólar global).
+    Dólar, S&P, Ibov já existiam.
+    """
     contexto = {"score": 0, "resumo": [], "detalhes": {}}
     if not macro_dfs:
         return contexto
 
+    # --- Dólar (USD/BRL) — afeta ações brasileiras ---
     dolar = macro_dfs.get("Dolar")
     if dolar is not None and len(dolar) >= 10:
         preco_hoje = float(dolar["close"].iloc[-1])
@@ -882,6 +890,7 @@ def calcular_contexto_macro(macro_dfs):
             contexto["score"] += 1
             contexto["resumo"].append(f"Dólar {var_5d:.1f}%")
 
+    # --- S&P 500 — humor global ---
     sp = macro_dfs.get("SP500")
     if sp is not None and len(sp) >= 5:
         preco_hoje = float(sp["close"].iloc[-1])
@@ -901,6 +910,7 @@ def calcular_contexto_macro(macro_dfs):
             contexto["score"] += 1
             contexto["resumo"].append(f"S&P +{var_5d:.1f}%")
 
+    # --- Ibovespa ---
     ibov = macro_dfs.get("Ibov")
     if ibov is not None and len(ibov) >= 5:
         preco_hoje = float(ibov["close"].iloc[-1])
@@ -914,7 +924,46 @@ def calcular_contexto_macro(macro_dfs):
             contexto["score"] += 1
             contexto["resumo"].append(f"Ibov +{var_5d:.1f}%")
 
-    contexto["score"] = max(-5, min(5, contexto["score"]))
+    # --- NOVO v7: VIX — medo global ---
+    vix = macro_dfs.get("VIX")
+    if vix is not None and len(vix) >= 5:
+        valor_vix = float(vix["close"].iloc[-1])
+        contexto["detalhes"]["VIX"] = round(valor_vix, 2)
+        if valor_vix >= 35.0:
+            contexto["score"] -= 3
+            contexto["resumo"].append(f"VIX {valor_vix:.1f} (pânico)")
+        elif valor_vix >= 25.0:
+            contexto["score"] -= 2
+            contexto["resumo"].append(f"VIX {valor_vix:.1f} (medo)")
+        elif valor_vix >= 20.0:
+            contexto["score"] -= 1
+            contexto["resumo"].append(f"VIX {valor_vix:.1f} (cautela)")
+        elif valor_vix < 15.0:
+            contexto["score"] += 1
+            contexto["resumo"].append(f"VIX {valor_vix:.1f} (calmo)")
+
+    # --- NOVO v7: DXY — força do dólar global ---
+    dxy = macro_dfs.get("DXY")
+    if dxy is not None and len(dxy) >= 6:
+        preco_hoje = float(dxy["close"].iloc[-1])
+        preco_5d   = float(dxy["close"].iloc[-6])
+        var_5d = (preco_hoje / preco_5d - 1) * 100
+        contexto["detalhes"]["DXY"] = round(var_5d, 2)
+        if var_5d > 1.5:
+            contexto["score"] -= 2
+            contexto["resumo"].append(f"DXY +{var_5d:.1f}% (risk-off global)")
+        elif var_5d > 0.7:
+            contexto["score"] -= 1
+            contexto["resumo"].append(f"DXY +{var_5d:.1f}%")
+        elif var_5d < -1.5:
+            contexto["score"] += 2
+            contexto["resumo"].append(f"DXY {var_5d:.1f}% (risk-on global)")
+        elif var_5d < -0.7:
+            contexto["score"] += 1
+            contexto["resumo"].append(f"DXY {var_5d:.1f}%")
+
+    # Limite ajustado: antes era -5..+5, agora permite -8..+8 (mais componentes)
+    contexto["score"] = max(-8, min(8, contexto["score"]))
     return contexto
 
 
@@ -1923,12 +1972,29 @@ def _main_interno():
     print(f"🔴 Vendas : {', '.join(fechamentos) if fechamentos else 'nenhuma'}")
     print("=" * 75)
 
+def teste_macro():
+    """Teste rápido do contexto macro expandido."""
+    print("=" * 75)
+    print("🧪 TESTE — Contexto Macro expandido (v7)")
+    print("=" * 75)
+    macro_dfs = buscar_macro()
+    ctx = calcular_contexto_macro(macro_dfs)
+    print(f"\n📊 Score: {ctx['score']:+d}")
+    print(f"\n📋 Resumo:")
+    for r in ctx["resumo"]:
+        print(f"   • {r}")
+    print(f"\n🔍 Detalhes (% variação 5d):")
+    for k, v in ctx["detalhes"].items():
+        print(f"   • {k}: {v:+.2f}%")
+    print("=" * 75)
 
 # ==========================================
 # BLOCO DE EXECUÇÃO
 # ==========================================
 if __name__ == "__main__":
-    if os.environ.get("TESTE_STOP", "false").lower() == "true":
+    if os.environ.get("TESTE_MACRO", "false").lower() == "true":
+        teste_macro()
+    elif os.environ.get("TESTE_STOP", "false").lower() == "true":
         teste_stop_loss()
     elif os.environ.get("MODO_RELATORIO", "false").lower() == "true":
         gerar_relatorio_semanal()
