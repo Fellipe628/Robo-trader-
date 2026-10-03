@@ -2,9 +2,11 @@ name: Robo Trader
 
 on:
   schedule:
-    # ⭐ Treino noturno (3h BRT = 6h UTC) — TREINAR_LSTM=true
+    # ⭐ Treino de CRIPTO (3h BRT, todos os dias — madrugada)
     - cron: '0 6 * * *'
-    # Demais execuções do dia — TREINAR_LSTM=false (usa modelo salvo)
+    # ⭐ Treino de AÇÕES + CRIPTO (10h BRT, seg-sex, mercado aberto)
+    - cron: '0 13 * * 1-5'
+    # Ciclos normais do dia (modo uso)
     - cron: '0 3 * * *'
     - cron: '0 9,10 * * *'
     - cron: '0,30 11,12 * * *'
@@ -52,9 +54,11 @@ jobs:
       - name: Definir modo (treino ou uso)
         id: modo
         run: |
-          if [ "${{ github.event.schedule }}" = "0 6 * * *" ] || [ "${{ github.event.inputs.treinar_lstm }}" = "true" ]; then
+          SCHEDULE="${{ github.event.schedule }}"
+          INPUT="${{ github.event.inputs.treinar_lstm }}"
+          if [ "$SCHEDULE" = "0 6 * * *" ] || [ "$SCHEDULE" = "0 13 * * 1-5" ] || [ "$INPUT" = "true" ]; then
             echo "treinar=true" >> $GITHUB_OUTPUT
-            echo "🧠 Modo TREINO ativado"
+            echo "🧠 Modo TREINO ativado (schedule: $SCHEDULE)"
           else
             echo "treinar=false" >> $GITHUB_OUTPUT
             echo "📦 Modo USO (carrega modelo do cache)"
