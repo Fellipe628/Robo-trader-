@@ -1988,9 +1988,31 @@ def teste_macro():
         print(f"   • {k}: {v:+.2f}%")
     print("=" * 75)
 
+def teste_envio_telegram():
+    """Testa se o Telegram está recebendo mensagens."""
+    print("📤 Enviando mensagem de teste...")
+    ok = enviar_telegram(
+        "🧪 *TESTE DE CONEXÃO*\n\n"
+        "Se você está lendo isso, o Telegram está OK.\n"
+        f"⏰ {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+    )
+    print(f"✅ Enviado: {ok}" if ok else "❌ Falhou — verifique TELEGRAM_TOKEN e TELEGRAM_CHAT_ID")
+
 # ==========================================
 # BLOCO DE EXECUÇÃO
 # ==========================================
+if __name__ == "__main__":
+    if os.environ.get("TESTE_TELEGRAM", "false").lower() == "true":
+        teste_envio_telegram()
+    elif os.environ.get("TESTE_MACRO", "false").lower() == "true":
+        teste_macro()
+    elif os.environ.get("TESTE_STOP", "false").lower() == "true":
+        teste_stop_loss()
+    elif os.environ.get("MODO_RELATORIO", "false").lower() == "true":
+        gerar_relatorio_semanal()
+    else:
+        main()
+
 if __name__ == "__main__":
     if os.environ.get("TESTE_MACRO", "false").lower() == "true":
         teste_macro()
