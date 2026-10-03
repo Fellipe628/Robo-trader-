@@ -1,7 +1,7 @@
 # ==========================================
-# ROBÔ TRADER — GitHub Actions (v8)
-# Cripto 4h + MTF maior + Reversão dupla
-# Horário B3 + Trailing ATR + VIX/DXY + LSTM
+# ROBÔ TRADER — GitHub Actions (v8.1)
+# Cripto 4h + MTF + Macro (VIX/DXY) + LSTM + Trailing ATR
+# Treino automático noturno + ações só abrem no horário
 # ==========================================
 import os
 import time
@@ -78,7 +78,7 @@ MACRO_TICKERS = {
 VALOR_POR_TRADE = 1000
 MAX_POSICOES    = 7
 
-# --- Perfis (com trailing por ATR) ---
+# --- Perfis ---
 PERFIS = {
     "conservador": {
         "distancia_trailing": 3.0,
@@ -735,7 +735,7 @@ def calcular_contexto_macro(macro_dfs):
         elif var_5d > 3.0:
             contexto["score"] += 1; contexto["resumo"].append(f"Ibov +{var_5d:.1f}%")
 
-    # --- VIX (medo global) ---
+    # --- VIX ---
     vix = macro_dfs.get("VIX")
     if vix is not None and len(vix) >= 5:
         valor_vix = float(vix["close"].iloc[-1])
@@ -749,7 +749,7 @@ def calcular_contexto_macro(macro_dfs):
         elif valor_vix < 15.0:
             contexto["score"] += 1; contexto["resumo"].append(f"VIX {valor_vix:.1f} (calmo)")
 
-    # --- DXY (força do dólar global) ---
+    # --- DXY ---
     dxy = macro_dfs.get("DXY")
     if dxy is not None and len(dxy) >= 6:
         var_5d = (float(dxy["close"].iloc[-1]) / float(dxy["close"].iloc[-6]) - 1) * 100
@@ -882,7 +882,6 @@ def gerar_sinal(row, coluna_preco="close", macro_score=0, lstm_variacao=None,
         score += macro_score
         motivos.append(f"Macro {macro_score:+d}")
 
-    # --- LSTM: peso TÍMIDO (±1 ponto, e bloqueio se queda forte) ---
     if lstm_variacao is not None:
         if lstm_variacao > 2.0:
             score += 1; motivos.append(f"LSTM +{lstm_variacao:.1f}%")
@@ -978,25 +977,21 @@ def _construir_modelo(janela=JANELA):
 
 
 def treinar_lstm(ativo, df, forcar_retreino=False):
-    """Treina o LSTM. Salva em disco. Se TREINAR_LSTM=true, força retreino."""
     if not _lstm_disponivel:
         return None, None
 
     caminho_modelo = f"{PASTA_MODELOS}/{ativo}_lstm.keras"
     caminho_scaler = f"{PASTA_MODELOS}/{ativo}_scaler.pkl"
 
-    # Se NÃO é pra treinar (cron normal) e existe modelo salvo → carrega
     if not forcar_retreino and os.path.exists(caminho_modelo):
         try:
             return load_model(caminho_modelo), joblib.load(caminho_scaler)
         except Exception as e:
             print(f"   ⚠️ Erro carregando modelo de {ativo}: {e}")
 
-    # Se NÃO é pra treinar e NÃO existe modelo salvo → pula
     if not forcar_retreino:
         return None, None
 
-    # Treina
     print(f"   🧠 Treinando LSTM para {ativo}...")
     X, y, scaler = _preparar_dados_lstm(df)
 
@@ -1148,7 +1143,7 @@ def rodar_watchlist_completa(perfil=None):
 
     print("   🔬 Coletando multi-timeframe...")
 
-    # --- Cripto (sempre) ---
+    # --- Cripto (sempre, 24/7) ---
     for nome in CRIPTO_WATCHLIST:
         print(f"   🔎 {nome}")
         df = buscar_cripto(nome, periodo="2mo", intervalo="4h")
@@ -1166,8 +1161,10 @@ def rodar_watchlist_completa(perfil=None):
                                               confluencia_motivo=confluencia_motivo))
         time.sleep(0.3)
 
-    # --- Ações (só dentro do horário) ---
-    if dentro_horario:
+    # --- Ações: sempre no modo TREINO; só no horário no modo USO ---
+    if dentro_horario or TREINAR_LSTM:
+        if not dentro_horario:
+            print("   🧠 Modo treino: analisando ações mesmo fora do horário (só para treinar LSTM)")
         for nome, ticker in ACOES_WATCHLIST.items():
             print(f"   🔎 {nome}")
             df = buscar_acao(ticker, periodo="2y", intervalo="1d")
@@ -1475,6 +1472,10 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
 
         tipo = "Cripto" if _e_cripto(ativo) else "Ação"
 
+        # NOVO: Bloqueia abertura de AÇÃO fora do horário (mesmo em modo treino)
+        if tipo == "Ação" and not _dentro_horario_mercado():
+            continue
+
         score_minimo = 3 + score_extra
         if tipo == "Cripto":
             score_minimo += CRIPTO_SCORE_MIN_EXTRA
@@ -1631,7 +1632,7 @@ def main():
 
 def _main_interno():
     print("=" * 75)
-    print("🤖 ROBÔ TRADER — CICLO GITHUB ACTIONS (v8)")
+    print("🤖 ROBÔ TRADER — CICLO GITHUB ACTIONS (v8.1)")
     print(f"📅 {datetime.now().strftime('%d/%m/%Y %H:%M')}")
     print(f"⚙️ Perfil: {PERFIL_ATIVO}")
     print(f"🧠 LSTM: {'TREINAR + USAR' if TREINAR_LSTM else 'USAR SALVO (ou pular)'}")
