@@ -1,7 +1,8 @@
 # ==========================================
-# ROBÔ TRADER — GitHub Actions (v6)
+# ROBÔ TRADER — GitHub Actions (v7)
 # Cripto 4h + MTF maior + Reversão confirmada
 # Horário de mercado B3 + Watchlist expandida
+# NOVO v7: Trailing Stop por ATR (ação vs cripto)
 # ==========================================
 import os
 import time
@@ -102,16 +103,22 @@ QUERIES_SENTIMENTO = {
 
 # --- Parâmetros de trading ---
 VALOR_POR_TRADE = 1000
-MAX_POSICOES    = 7    # Aumentado (eram 5) porque agora tem mais ativos
+MAX_POSICOES    = 7
 
-# --- Perfis ---
+# --- Perfis (v7: com trailing por ATR) ---
 PERFIS = {
     "conservador": {
+        # Legado (mantido para compatibilidade)
         "distancia_trailing": 3.0,
         "trailing_ativa_em":  5.0,
         "mult_alvo":          2.0,
         "mult_stop":          1.0,
         "alvo_parcial":       False,
+        # NOVO v7 — Trailing por ATR (específico por tipo de ativo)
+        "trailing_atr_mult_acao":   1.0,
+        "trailing_atr_mult_cripto": 2.0,
+        "trailing_min_pct":         0.015,
+        "trailing_max_pct":         0.035,
     },
     "equilibrado": {
         "distancia_trailing": 5.0,
@@ -119,6 +126,11 @@ PERFIS = {
         "mult_alvo":          3.0,
         "mult_stop":          1.5,
         "alvo_parcial":       False,
+        # NOVO v7
+        "trailing_atr_mult_acao":   1.5,
+        "trailing_atr_mult_cripto": 2.5,
+        "trailing_min_pct":         0.015,
+        "trailing_max_pct":         0.040,
     },
     "agressivo": {
         "distancia_trailing": 8.0,
@@ -126,6 +138,11 @@ PERFIS = {
         "mult_alvo":          5.0,
         "mult_stop":          2.0,
         "alvo_parcial":       True,
+        # NOVO v7
+        "trailing_atr_mult_acao":   2.0,
+        "trailing_atr_mult_cripto": 3.0,
+        "trailing_min_pct":         0.020,
+        "trailing_max_pct":         0.060,
     },
 }
 PERFIL_ATIVO = "equilibrado"
@@ -176,9 +193,7 @@ def _dentro_horario_mercado():
 
 def _e_cripto(ativo):
     return ativo in CRIPTO_WATCHLIST
-
-
-# ==========================================
+    # ==========================================
 # PORTFÓLIO
 # ==========================================
 def _df_vazio():
@@ -283,6 +298,28 @@ def registrar_compra(ativo, tipo, preco, qtd, alvo, stop, perfil="equilibrado"):
     salvar_portfolio(df)
     print(f"✅ Compra: {ativo} @ {preco:.{casas}f} | Perfil: {perfil}")
     return nova
+
+
+def calcular_trailing_por_atr(preco_atual, atr, tipo, perfil="equilibrado"):
+    """
+    NOVO v7 — Calcula a distância de trailing (em decimal, ex: 0.021 = 2.1%)
+    baseada em ATR específico por tipo de ativo.
+    - Ação:  ATR × trailing_atr_mult_acao
+    - Cripto: ATR × trailing_atr_mult_cripto
+    Aplica piso e teto em % para proteger contra ATR anômalo.
+    """
+    cfg = PERFIS[perfil]
+    if tipo == "Cripto":
+        mult = cfg["trailing_atr_mult_cripto"]
+    else:
+        mult = cfg["trailing_atr_mult_acao"]
+
+    if atr <= 0 or preco_atual <= 0:
+        return cfg["trailing_min_pct"]
+
+    dist = (atr * mult) / preco_atual
+    dist = max(cfg["trailing_min_pct"], min(cfg["trailing_max_pct"], dist))
+    return dist
 
 
 def atualizar_trailing(ativo, preco_atual, distancia_pct):
@@ -606,8 +643,7 @@ def remover_reversao_pendente(ativo):
     df = _carregar_reversoes_pendentes()
     df = df[df["Ativo"] != ativo]
     _salvar_reversoes_pendentes(df)
-
-# ==========================================
+    # ==========================================
 # SENTIMENTO (APITube + Cache diário)
 # ==========================================
 def _carregar_cache_sentimento():
@@ -741,7 +777,7 @@ def _baixar_yahoo(ticker, periodo="6mo", intervalo="1d"):
 
 
 def buscar_cripto(moeda="BTC", periodo="1mo", intervalo="4h"):
-    """Cripto agora usa candle de 4h (era 1h)."""
+    """Cripto usa candle de 4h."""
     ticker = CRIPTO_YF.get(moeda.upper())
     if not ticker:
         return None
@@ -754,7 +790,7 @@ def buscar_acao(ticker="PETR4.SA", periodo="2y", intervalo="1d"):
 
 def buscar_mtf(ativo, tipo="Ação"):
     """Multi-Timeframe:
-    - Cripto: 1D + 4H + 1H (era 4H + 1H + 15m)
+    - Cripto: 1D + 4H + 1H
     - Ação:  1D + 4H + 1H
     """
     if tipo == "Cripto":
@@ -1027,7 +1063,7 @@ def gerar_sinal(row, coluna_preco="close", macro_score=0, lstm_variacao=None,
 
 
 def calcular_alvo_stop(df, perfil="equilibrado", tipo="Ação"):
-    """Cripto: ATR × 2 no stop (era 1,5). Alvo mantém 1,5×."""
+    """Cripto: ATR × 2 no stop. Ação: ATR × 1,5. Alvo: ATR × mult_alvo."""
     cfg = PERFIS[perfil]
     d = calcular_indicadores(df, coluna_preco="close")
     ultima = d.iloc[-1]
@@ -1037,7 +1073,7 @@ def calcular_alvo_stop(df, perfil="equilibrado", tipo="Ação"):
 
     if tipo == "Cripto":
         mult_alvo = cfg["mult_alvo"] * 1.5       # 4.5
-        mult_stop = cfg["mult_stop"] * 2.0       # 3.0 (era 1.5)
+        mult_stop = cfg["mult_stop"] * 2.0       # 3.0
     else:
         mult_alvo = cfg["mult_alvo"]             # 3.0
         mult_stop = cfg["mult_stop"]             # 1.5
@@ -1045,9 +1081,7 @@ def calcular_alvo_stop(df, perfil="equilibrado", tipo="Ação"):
     alvo = round(preco + mult_alvo * atr, casas)
     stop = round(preco - mult_stop * atr, casas)
     return preco, alvo, stop, atr
-
-
-# ==========================================
+    # ==========================================
 # LSTM
 # ==========================================
 import numpy as np
@@ -1250,11 +1284,10 @@ def _analisar_com_lstm(nome, df, treinar=True, macro_score=0,
 
 
 def rodar_watchlist_completa(treinar_lstm_flag=False, perfil=None):
-    """Roda análise — agora respeita o horário de mercado B3."""
+    """Roda análise — respeita o horário de mercado B3."""
     if perfil is None:
         perfil = PERFIL_ATIVO
 
-    # --- Verificação de horário ---
     dentro_horario = _dentro_horario_mercado()
     if dentro_horario:
         print(f"   ⏰ Dentro do horário de mercado (BRT {_agora_brt().strftime('%H:%M')}) — analisando ações + cripto")
@@ -1327,6 +1360,7 @@ def rodar_watchlist_completa(treinar_lstm_flag=False, perfil=None):
 
     return pd.DataFrame(resultados), dfs
 
+
 # ==========================================
 # TELEGRAM
 # ==========================================
@@ -1391,13 +1425,18 @@ def alerta_venda(ativo, preco_compra, preco_venda, lucro_rs, lucro_pct, motivo, 
     enviar_telegram(msg)
 
 
-def alerta_trailing(ativo, stop_antigo, stop_novo, preco_atual):
+def alerta_trailing(ativo, stop_antigo, stop_novo, preco_atual, dist_atr=None, atr=None):
+    """v7: agora mostra também a distância em ATR (quando disponível)."""
     casas = _precisao(preco_atual)
+    extra = ""
+    if dist_atr is not None and atr is not None and atr > 0:
+        extra = f"📐 Distância: {dist_atr:.2f}× ATR ({atr:.{casas}f})\n"
     msg = (
         f"📈 *TRAILING STOP ATUALIZADO*\n\n"
         f"📌 Ativo: `{ativo}`\n"
         f"💰 Preço atual: {preco_atual:,.{casas}f}\n"
-        f"🛑 Stop: {stop_antigo:,.{casas}f} → *{stop_novo:,.{casas}f}*\n\n"
+        f"🛑 Stop: {stop_antigo:,.{casas}f} → *{stop_novo:,.{casas}f}*\n"
+        f"{extra}\n"
         f"🔒 Lucro protegido\n"
         f"⏰ {datetime.now().strftime('%d/%m/%Y %H:%M')}"
     )
@@ -1482,15 +1521,25 @@ def verificar_posicoes_abertas(tabela, dfs, perfil=None):
             qtd_restante_raw = pos.get("Qtd")
         qtd_restante = float(qtd_restante_raw) if pd.notna(qtd_restante_raw) else 0
 
-        # --- Trailing normal ---
+        # --- Trailing normal (v7: ATR dinâmico por tipo de ativo) ---
         lucro_pct = (preco_atual / preco_compra - 1) * 100
         if lucro_pct >= cfg["trailing_ativa_em"]:
-            novo_stop = preco_atual * (1 - cfg["distancia_trailing"] / 100)
+            # Calcula ATR do momento (reusa o df já carregado)
+            d_pos = calcular_indicadores(df, coluna_preco="close")
+            atr_atual = float(d_pos["ATR"].iloc[-1]) if pd.notna(d_pos["ATR"].iloc[-1]) else preco_atual * 0.02
+
+            # NOVO v7: distância por ATR (específico do tipo de ativo)
+            dist_pct = calcular_trailing_por_atr(preco_atual, atr_atual, tipo, perfil)
+            novo_stop = preco_atual * (1 - dist_pct)
+
             novo_stop_arred = round(novo_stop, casas)
             stop_atual_arred = round(stop_atual, casas)
             if novo_stop_arred > stop_atual_arred:
-                atualizar_trailing(ativo, preco_atual, cfg["distancia_trailing"])
-                alerta_trailing(ativo, stop_atual_arred, novo_stop_arred, preco_atual)
+                # atualizar_trailing recebe distância em % (compatibilidade)
+                atualizar_trailing(ativo, preco_atual, dist_pct * 100)
+                dist_em_atr = (preco_atual - novo_stop_arred) / atr_atual if atr_atual > 0 else 0
+                alerta_trailing(ativo, stop_atual_arred, novo_stop_arred, preco_atual,
+                                dist_atr=dist_em_atr, atr=atr_atual)
                 stop_atual = novo_stop_arred
 
         # --- LET WINNERS RUN: bateu alvo ---
@@ -1554,7 +1603,6 @@ def verificar_posicoes_abertas(tabela, dfs, perfil=None):
         linha = tabela[tabela["Ativo"] == ativo]
         if not linha.empty and "VENDER" in str(linha.iloc[0]["Veredito"]):
             if tipo == "Cripto":
-                # Tempo mínimo de permanência
                 try:
                     data_compra = datetime.strptime(pos["Data_Compra"], "%Y-%m-%d %H:%M")
                     idade_h = (datetime.now() - data_compra).total_seconds() / 3600
@@ -1566,9 +1614,7 @@ def verificar_posicoes_abertas(tabela, dfs, perfil=None):
                           f"{CRIPTO_TEMPO_MIN_REVERSAO_H}h)")
                     continue
 
-                # Cripto exige 2 confirmações
                 if reversao_esta_pendente(ativo):
-                    # 2ª confirmação → vende
                     res = registrar_venda(ativo, preco_atual, motivo="🔴 Reversão técnica")
                     if res:
                         alerta_venda(res["ativo"], res["preco_compra"], res["preco_venda"],
@@ -1578,12 +1624,10 @@ def verificar_posicoes_abertas(tabela, dfs, perfil=None):
                     remover_reversao_pendente(ativo)
                     fechamentos.append(ativo)
                 else:
-                    # 1ª confirmação → registra pendente
                     registrar_reversao_pendente(ativo)
                     alerta_reversao_pendente(ativo, preco_atual)
                     print(f"   ⏳ {ativo} reversão pendente (1ª confirmação)")
             else:
-                # Ação: vende imediatamente (comportamento antigo)
                 res = registrar_venda(ativo, preco_atual, motivo="🔴 Reversão técnica")
                 if res:
                     alerta_venda(res["ativo"], res["preco_compra"], res["preco_venda"],
@@ -1592,7 +1636,6 @@ def verificar_posicoes_abertas(tabela, dfs, perfil=None):
                     registrar_stop_no_circuit()
                 fechamentos.append(ativo)
         else:
-            # Veredito não é mais VENDER → cancela pendência de reversão
             if reversao_esta_pendente(ativo):
                 remover_reversao_pendente(ativo)
                 print(f"   ✅ {ativo} reversão cancelada (veredito mudou)")
@@ -1627,7 +1670,6 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
 
         tipo = "Cripto" if _e_cripto(ativo) else "Ação"
 
-        # Score mínimo: +1 extra para cripto
         score_minimo = 3 + score_extra
         if tipo == "Cripto":
             score_minimo += CRIPTO_SCORE_MIN_EXTRA
@@ -1674,9 +1716,7 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
         novas.append(ativo)
 
     return novas
-
-
-# ==========================================
+    # ==========================================
 # RELATÓRIO SEMANAL
 # ==========================================
 def gerar_relatorio_semanal():
@@ -1767,6 +1807,48 @@ def gerar_relatorio_semanal():
 
 
 # ==========================================
+# TESTE RÁPIDO DO STOP (v7)
+# Roda com: TESTE_STOP=1 python robo.py
+# ==========================================
+def teste_stop_loss():
+    """Compara o stop antigo (5% fixo) com o novo (ATR por perfil)."""
+    print("=" * 75)
+    print("🧪 TESTE DO STOP LOSS — v7 (ATR por tipo de ativo)")
+    print("=" * 75)
+
+    ticker = "BBAS3.SA"
+    print(f"\n📌 Ativo: {ticker}\n")
+    df = buscar_acao(ticker, periodo="3mo", intervalo="1d")
+    if df is None or df.empty:
+        print("❌ Sem dados para o teste.")
+        return
+
+    d = calcular_indicadores(df, coluna_preco="close")
+    preco = float(d["close"].iloc[-1])
+    atr = float(d["ATR"].iloc[-1]) if pd.notna(d["ATR"].iloc[-1]) else preco * 0.02
+
+    print(f"   Preço atual: {preco:.2f}")
+    print(f"   ATR (14d):   {atr:.4f}  ({atr/preco*100:.2f}% do preço)")
+    print()
+    print(f"   {'Perfil':14s} {'Dist %':>8s} {'Stop':>10s} {'Distância ATR':>15s}")
+    print(f"   {'-'*14} {'-'*8} {'-'*10} {'-'*15}")
+
+    for perfil in ["conservador", "equilibrado", "agressivo"]:
+        dist = calcular_trailing_por_atr(preco, atr, "Ação", perfil)
+        stop = preco * (1 - dist)
+        dist_atr = (preco - stop) / atr if atr > 0 else 0
+        print(f"   {perfil:14s} {dist*100:7.2f}% {stop:10.2f} {dist_atr:14.2f}×")
+
+    # Compara com o antigo (5% fixo)
+    print()
+    print(f"   ⚠️ ANTES (v6, 5% fixo): stop em {preco*0.95:.2f}")
+    print(f"   ✅ AGORA (equilibrado): stop em {preco * (1 - calcular_trailing_por_atr(preco, atr, 'Ação', 'equilibrado')):.2f}")
+    print()
+    print(f"   Cripto (mesmo ATR hipotético) ficaria mais largado de propósito.")
+    print("=" * 75)
+
+
+# ==========================================
 # EXECUÇÃO PRINCIPAL
 # ==========================================
 def main():
@@ -1788,10 +1870,11 @@ def main():
 
 def _main_interno():
     print("=" * 75)
-    print("🤖 ROBÔ TRADER — CICLO GITHUB ACTIONS (v6)")
+    print("🤖 ROBÔ TRADER — CICLO GITHUB ACTIONS (v7)")
     print(f"📅 {datetime.now().strftime('%d/%m/%Y %H:%M')}")
     print(f"⚙️ Perfil: {PERFIL_ATIVO} | Modo: {'TREINO' if TREINAR_LSTM else 'CARREGAR'}")
     print(f"📰 Sentimento: {'ATIVO' if _sentimento_ok else 'DESATIVADO'}")
+    print(f"🎯 Trailing: ATR × ação/cripto (v7)")
 
     estado_cb, _, _, _ = verificar_circuit_breaker()
     print(f"🔌 Circuit breaker: {estado_cb.upper()}")
@@ -1841,8 +1924,13 @@ def _main_interno():
     print("=" * 75)
 
 
+# ==========================================
+# BLOCO DE EXECUÇÃO
+# ==========================================
 if __name__ == "__main__":
-    if os.environ.get("MODO_RELATORIO", "false").lower() == "true":
+    if os.environ.get("TESTE_STOP", "false").lower() == "true":
+        teste_stop_loss()
+    elif os.environ.get("MODO_RELATORIO", "false").lower() == "true":
         gerar_relatorio_semanal()
     else:
         main()
