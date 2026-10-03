@@ -3,6 +3,7 @@
 # Cripto 4h + MTF maior + Reversão confirmada
 # Horário de mercado B3 + Watchlist expandida
 # NOVO v7: Trailing Stop por ATR (ação vs cripto)
+# NOVO v7: Contexto macro expandido (VIX + DXY)
 # ==========================================
 import os
 import time
@@ -30,13 +31,13 @@ PAUSA_DEFENSIVO_HORAS  = 12
 JANELA_STOPS_HORAS     = 24
 
 # --- Regras específicas de Cripto ---
-CRIPTO_TEMPO_MIN_REVERSAO_H = 6      # tempo mínimo antes de aceitar reversão
-CRIPTO_SCORE_MIN_EXTRA      = 1      # +1 no score mínimo para cripto (total 4)
-CRIPTO_MULT_STOP_EXTRA      = 1.33   # multiplica mult_stop por 1.33 (ATR × 2)
+CRIPTO_TEMPO_MIN_REVERSAO_H = 6
+CRIPTO_SCORE_MIN_EXTRA      = 1
+CRIPTO_MULT_STOP_EXTRA      = 1.33
 
 # --- Horário de mercado B3 ---
-B3_HORA_ABERTURA = 9.75    # 09:45 BRT
-B3_HORA_FECHAMENTO = 17.5  # 17:30 BRT
+B3_HORA_ABERTURA = 9.75
+B3_HORA_FECHAMENTO = 17.5
 
 # --- Telegram ---
 TELEGRAM_TOKEN   = os.environ.get("TELEGRAM_TOKEN")
@@ -53,13 +54,11 @@ TREINAR_LSTM = os.environ.get("TREINAR_LSTM", "false").lower() == "true"
 # --- Watchlists ---
 CRIPTO_WATCHLIST = ["BTC", "ETH", "SOL", "BNB", "ADA"]
 ACOES_WATCHLIST = {
-    # Originais
     "PETR4":  "PETR4.SA",
     "VALE3":  "VALE3.SA",
     "ITUB4":  "ITUB4.SA",
     "BBAS3":  "BBAS3.SA",
     "WEGE3":  "WEGE3.SA",
-    # Novas
     "ITSA4":  "ITSA4.SA",
     "BBDC4":  "BBDC4.SA",
     "B3SA3":  "B3SA3.SA",
@@ -76,15 +75,14 @@ CRIPTO_YF = {
 }
 
 MACRO_TICKERS = {
-    "Dolar":  "USDBRL=X",   # USD/BRL (dólar vs real)
-    "SP500":  "^GSPC",      # S&P 500
-    "Ibov":   "^BVSP",      # Ibovespa
-    "VIX":    "^VIX",       # NOVO v7: medo global (CBOE Volatility Index)
-    "DXY":    "DX-Y.NYB",   # NOVO v7: índice do dólar global (risk-on/off)
+    "Dolar":  "USDBRL=X",
+    "SP500":  "^GSPC",
+    "Ibov":   "^BVSP",
+    "VIX":    "^VIX",
+    "DXY":    "DX-Y.NYB",
 }
 
 QUERIES_SENTIMENTO = {
-    # Ações
     "PETR4": "Petrobras",
     "VALE3": "Vale",
     "ITUB4": "Itaú",
@@ -95,7 +93,6 @@ QUERIES_SENTIMENTO = {
     "B3SA3": "B3 Bolsa",
     "PRIO3": "PetroRio",
     "ABEV3": "Ambev",
-    # Cripto
     "BTC":   "Bitcoin",
     "ETH":   "Ethereum",
     "SOL":   "Solana",
@@ -110,13 +107,11 @@ MAX_POSICOES    = 7
 # --- Perfis (v7: com trailing por ATR) ---
 PERFIS = {
     "conservador": {
-        # Legado (mantido para compatibilidade)
         "distancia_trailing": 3.0,
         "trailing_ativa_em":  5.0,
         "mult_alvo":          2.0,
         "mult_stop":          1.0,
         "alvo_parcial":       False,
-        # NOVO v7 — Trailing por ATR (específico por tipo de ativo)
         "trailing_atr_mult_acao":   1.0,
         "trailing_atr_mult_cripto": 2.0,
         "trailing_min_pct":         0.015,
@@ -128,7 +123,6 @@ PERFIS = {
         "mult_alvo":          3.0,
         "mult_stop":          1.5,
         "alvo_parcial":       False,
-        # NOVO v7
         "trailing_atr_mult_acao":   1.5,
         "trailing_atr_mult_cripto": 2.5,
         "trailing_min_pct":         0.015,
@@ -140,7 +134,6 @@ PERFIS = {
         "mult_alvo":          5.0,
         "mult_stop":          2.0,
         "alvo_parcial":       True,
-        # NOVO v7
         "trailing_atr_mult_acao":   2.0,
         "trailing_atr_mult_cripto": 3.0,
         "trailing_min_pct":         0.020,
@@ -187,7 +180,7 @@ def _agora_brt():
 def _dentro_horario_mercado():
     """True se for dia útil e estiver entre 09:45 e 17:30 BRT."""
     agora = _agora_brt()
-    if agora.weekday() >= 5:  # sábado (5) ou domingo (6)
+    if agora.weekday() >= 5:
         return False
     hora_decimal = agora.hour + agora.minute / 60
     return B3_HORA_ABERTURA <= hora_decimal <= B3_HORA_FECHAMENTO
@@ -195,7 +188,9 @@ def _dentro_horario_mercado():
 
 def _e_cripto(ativo):
     return ativo in CRIPTO_WATCHLIST
-    # ==========================================
+
+
+# ==========================================
 # PORTFÓLIO
 # ==========================================
 def _df_vazio():
@@ -304,11 +299,10 @@ def registrar_compra(ativo, tipo, preco, qtd, alvo, stop, perfil="equilibrado"):
 
 def calcular_trailing_por_atr(preco_atual, atr, tipo, perfil="equilibrado"):
     """
-    NOVO v7 — Calcula a distância de trailing (em decimal, ex: 0.021 = 2.1%)
-    baseada em ATR específico por tipo de ativo.
+    v7 — Calcula a distância de trailing (em decimal) baseada em ATR
+    específico por tipo de ativo.
     - Ação:  ATR × trailing_atr_mult_acao
     - Cripto: ATR × trailing_atr_mult_cripto
-    Aplica piso e teto em % para proteger contra ATR anômalo.
     """
     cfg = PERFIS[perfil]
     if tipo == "Cripto":
@@ -440,7 +434,7 @@ def salvar_analise(tabela):
 
 
 # ==========================================
-# COOLDOWN (após stop OU alvo)
+# COOLDOWN
 # ==========================================
 def _carregar_cooldowns():
     if os.path.exists(ARQUIVO_COOLDOWN):
@@ -483,7 +477,7 @@ def em_cooldown(ativo):
 
 
 # ==========================================
-# CIRCUIT BREAKER (estado de risco)
+# CIRCUIT BREAKER
 # ==========================================
 def _carregar_circuit_breaker():
     if os.path.exists(ARQUIVO_CIRCUIT):
@@ -571,7 +565,7 @@ def verificar_circuit_breaker():
 
 
 # ==========================================
-# STOPS PENDENTES (confirmação)
+# STOPS PENDENTES
 # ==========================================
 def _carregar_stops_pendentes():
     if os.path.exists(ARQUIVO_STOPS_PEND):
@@ -610,7 +604,7 @@ def remover_stop_pendente(ativo):
 
 
 # ==========================================
-# REVERSÕES PENDENTES (confirmação dupla)
+# REVERSÕES PENDENTES
 # ==========================================
 def _carregar_reversoes_pendentes():
     if os.path.exists(ARQUIVO_REVERSOES_PEND):
@@ -863,14 +857,13 @@ def buscar_macro():
 def calcular_contexto_macro(macro_dfs):
     """
     v7 — Contexto macro expandido.
-    Adicionado: VIX (medo global) e DXY (força do dólar global).
-    Dólar, S&P, Ibov já existiam.
+    Componentes: Dólar, S&P 500, Ibov, VIX, DXY.
     """
     contexto = {"score": 0, "resumo": [], "detalhes": {}}
     if not macro_dfs:
         return contexto
 
-    # --- Dólar (USD/BRL) — afeta ações brasileiras ---
+    # --- Dólar (USD/BRL) ---
     dolar = macro_dfs.get("Dolar")
     if dolar is not None and len(dolar) >= 10:
         preco_hoje = float(dolar["close"].iloc[-1])
@@ -890,7 +883,7 @@ def calcular_contexto_macro(macro_dfs):
             contexto["score"] += 1
             contexto["resumo"].append(f"Dólar {var_5d:.1f}%")
 
-    # --- S&P 500 — humor global ---
+    # --- S&P 500 ---
     sp = macro_dfs.get("SP500")
     if sp is not None and len(sp) >= 5:
         preco_hoje = float(sp["close"].iloc[-1])
@@ -924,7 +917,7 @@ def calcular_contexto_macro(macro_dfs):
             contexto["score"] += 1
             contexto["resumo"].append(f"Ibov +{var_5d:.1f}%")
 
-    # --- NOVO v7: VIX — medo global ---
+    # --- VIX (medo global) ---
     vix = macro_dfs.get("VIX")
     if vix is not None and len(vix) >= 5:
         valor_vix = float(vix["close"].iloc[-1])
@@ -942,7 +935,7 @@ def calcular_contexto_macro(macro_dfs):
             contexto["score"] += 1
             contexto["resumo"].append(f"VIX {valor_vix:.1f} (calmo)")
 
-    # --- NOVO v7: DXY — força do dólar global ---
+    # --- DXY (força do dólar global) ---
     dxy = macro_dfs.get("DXY")
     if dxy is not None and len(dxy) >= 6:
         preco_hoje = float(dxy["close"].iloc[-1])
@@ -962,7 +955,6 @@ def calcular_contexto_macro(macro_dfs):
             contexto["score"] += 1
             contexto["resumo"].append(f"DXY {var_5d:.1f}%")
 
-    # Limite ajustado: antes era -5..+5, agora permite -8..+8 (mais componentes)
     contexto["score"] = max(-8, min(8, contexto["score"]))
     return contexto
 
@@ -1121,16 +1113,18 @@ def calcular_alvo_stop(df, perfil="equilibrado", tipo="Ação"):
     casas = _precisao(preco)
 
     if tipo == "Cripto":
-        mult_alvo = cfg["mult_alvo"] * 1.5       # 4.5
-        mult_stop = cfg["mult_stop"] * 2.0       # 3.0
+        mult_alvo = cfg["mult_alvo"] * 1.5
+        mult_stop = cfg["mult_stop"] * 2.0
     else:
-        mult_alvo = cfg["mult_alvo"]             # 3.0
-        mult_stop = cfg["mult_stop"]             # 1.5
+        mult_alvo = cfg["mult_alvo"]
+        mult_stop = cfg["mult_stop"]
 
     alvo = round(preco + mult_alvo * atr, casas)
     stop = round(preco - mult_stop * atr, casas)
     return preco, alvo, stop, atr
-    # ==========================================
+
+
+# ==========================================
 # LSTM
 # ==========================================
 import numpy as np
@@ -1475,7 +1469,7 @@ def alerta_venda(ativo, preco_compra, preco_venda, lucro_rs, lucro_pct, motivo, 
 
 
 def alerta_trailing(ativo, stop_antigo, stop_novo, preco_atual, dist_atr=None, atr=None):
-    """v7: agora mostra também a distância em ATR (quando disponível)."""
+    """v7: mostra também a distância em ATR."""
     casas = _precisao(preco_atual)
     extra = ""
     if dist_atr is not None and atr is not None and atr > 0:
@@ -1532,9 +1526,7 @@ def alerta_reversao_pendente(ativo, preco_atual):
         f"⏰ {datetime.now().strftime('%d/%m/%Y %H:%M')}"
     )
     enviar_telegram(msg)
-
-
-# ==========================================
+    # ==========================================
 # AUTO-TRADING
 # ==========================================
 def verificar_posicoes_abertas(tabela, dfs, perfil=None):
@@ -1573,18 +1565,15 @@ def verificar_posicoes_abertas(tabela, dfs, perfil=None):
         # --- Trailing normal (v7: ATR dinâmico por tipo de ativo) ---
         lucro_pct = (preco_atual / preco_compra - 1) * 100
         if lucro_pct >= cfg["trailing_ativa_em"]:
-            # Calcula ATR do momento (reusa o df já carregado)
             d_pos = calcular_indicadores(df, coluna_preco="close")
             atr_atual = float(d_pos["ATR"].iloc[-1]) if pd.notna(d_pos["ATR"].iloc[-1]) else preco_atual * 0.02
 
-            # NOVO v7: distância por ATR (específico do tipo de ativo)
             dist_pct = calcular_trailing_por_atr(preco_atual, atr_atual, tipo, perfil)
             novo_stop = preco_atual * (1 - dist_pct)
 
             novo_stop_arred = round(novo_stop, casas)
             stop_atual_arred = round(stop_atual, casas)
             if novo_stop_arred > stop_atual_arred:
-                # atualizar_trailing recebe distância em % (compatibilidade)
                 atualizar_trailing(ativo, preco_atual, dist_pct * 100)
                 dist_em_atr = (preco_atual - novo_stop_arred) / atr_atual if atr_atual > 0 else 0
                 alerta_trailing(ativo, stop_atual_arred, novo_stop_arred, preco_atual,
@@ -1765,7 +1754,9 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
         novas.append(ativo)
 
     return novas
-    # ==========================================
+
+
+# ==========================================
 # RELATÓRIO SEMANAL
 # ==========================================
 def gerar_relatorio_semanal():
@@ -1856,48 +1847,6 @@ def gerar_relatorio_semanal():
 
 
 # ==========================================
-# TESTE RÁPIDO DO STOP (v7)
-# Roda com: TESTE_STOP=1 python robo.py
-# ==========================================
-def teste_stop_loss():
-    """Compara o stop antigo (5% fixo) com o novo (ATR por perfil)."""
-    print("=" * 75)
-    print("🧪 TESTE DO STOP LOSS — v7 (ATR por tipo de ativo)")
-    print("=" * 75)
-
-    ticker = "BBAS3.SA"
-    print(f"\n📌 Ativo: {ticker}\n")
-    df = buscar_acao(ticker, periodo="3mo", intervalo="1d")
-    if df is None or df.empty:
-        print("❌ Sem dados para o teste.")
-        return
-
-    d = calcular_indicadores(df, coluna_preco="close")
-    preco = float(d["close"].iloc[-1])
-    atr = float(d["ATR"].iloc[-1]) if pd.notna(d["ATR"].iloc[-1]) else preco * 0.02
-
-    print(f"   Preço atual: {preco:.2f}")
-    print(f"   ATR (14d):   {atr:.4f}  ({atr/preco*100:.2f}% do preço)")
-    print()
-    print(f"   {'Perfil':14s} {'Dist %':>8s} {'Stop':>10s} {'Distância ATR':>15s}")
-    print(f"   {'-'*14} {'-'*8} {'-'*10} {'-'*15}")
-
-    for perfil in ["conservador", "equilibrado", "agressivo"]:
-        dist = calcular_trailing_por_atr(preco, atr, "Ação", perfil)
-        stop = preco * (1 - dist)
-        dist_atr = (preco - stop) / atr if atr > 0 else 0
-        print(f"   {perfil:14s} {dist*100:7.2f}% {stop:10.2f} {dist_atr:14.2f}×")
-
-    # Compara com o antigo (5% fixo)
-    print()
-    print(f"   ⚠️ ANTES (v6, 5% fixo): stop em {preco*0.95:.2f}")
-    print(f"   ✅ AGORA (equilibrado): stop em {preco * (1 - calcular_trailing_por_atr(preco, atr, 'Ação', 'equilibrado')):.2f}")
-    print()
-    print(f"   Cripto (mesmo ATR hipotético) ficaria mais largado de propósito.")
-    print("=" * 75)
-
-
-# ==========================================
 # EXECUÇÃO PRINCIPAL
 # ==========================================
 def main():
@@ -1972,53 +1921,12 @@ def _main_interno():
     print(f"🔴 Vendas : {', '.join(fechamentos) if fechamentos else 'nenhuma'}")
     print("=" * 75)
 
-def teste_macro():
-    """Teste rápido do contexto macro expandido."""
-    print("=" * 75)
-    print("🧪 TESTE — Contexto Macro expandido (v7)")
-    print("=" * 75)
-    macro_dfs = buscar_macro()
-    ctx = calcular_contexto_macro(macro_dfs)
-    print(f"\n📊 Score: {ctx['score']:+d}")
-    print(f"\n📋 Resumo:")
-    for r in ctx["resumo"]:
-        print(f"   • {r}")
-    print(f"\n🔍 Detalhes (% variação 5d):")
-    for k, v in ctx["detalhes"].items():
-        print(f"   • {k}: {v:+.2f}%")
-    print("=" * 75)
-
-def teste_envio_telegram():
-    """Testa se o Telegram está recebendo mensagens."""
-    print("📤 Enviando mensagem de teste...")
-    ok = enviar_telegram(
-        "🧪 *TESTE DE CONEXÃO*\n\n"
-        "Se você está lendo isso, o Telegram está OK.\n"
-        f"⏰ {datetime.now().strftime('%d/%m/%Y %H:%M')}"
-    )
-    print(f"✅ Enviado: {ok}" if ok else "❌ Falhou — verifique TELEGRAM_TOKEN e TELEGRAM_CHAT_ID")
 
 # ==========================================
-# BLOCO DE EXECUÇÃO
+# BLOCO DE EXECUÇÃO (único)
 # ==========================================
 if __name__ == "__main__":
-    if os.environ.get("TESTE_TELEGRAM", "false").lower() == "true":
-        teste_envio_telegram()
-    elif os.environ.get("TESTE_MACRO", "false").lower() == "true":
-        teste_macro()
-    elif os.environ.get("TESTE_STOP", "false").lower() == "true":
-        teste_stop_loss()
-    elif os.environ.get("MODO_RELATORIO", "false").lower() == "true":
-        gerar_relatorio_semanal()
-    else:
-        main()
-
-if __name__ == "__main__":
-    if os.environ.get("TESTE_MACRO", "false").lower() == "true":
-        teste_macro()
-    elif os.environ.get("TESTE_STOP", "false").lower() == "true":
-        teste_stop_loss()
-    elif os.environ.get("MODO_RELATORIO", "false").lower() == "true":
+    if os.environ.get("MODO_RELATORIO", "false").lower() == "true":
         gerar_relatorio_semanal()
     else:
         main()
