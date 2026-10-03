@@ -32,8 +32,8 @@ CRIPTO_TEMPO_MIN_REVERSAO_H = 6
 CRIPTO_SCORE_MIN_EXTRA      = 1
 
 # --- Horário de mercado B3 ---
-B3_HORA_ABERTURA = 9.75
-B3_HORA_FECHAMENTO = 17.5
+B3_HORA_ABERTURA = 9.5    # 09:30 BRT
+B3_HORA_FECHAMENTO = 18.0  # 18:00 BRT
 
 # --- Telegram ---
 TELEGRAM_TOKEN   = os.environ.get("TELEGRAM_TOKEN")
@@ -1120,7 +1120,6 @@ def _analisar_com_lstm(nome, df, macro_score=0, perfil="equilibrado",
 
     return resultado
 
-
 def rodar_watchlist_completa(perfil=None):
     if perfil is None:
         perfil = PERFIL_ATIVO
@@ -1161,10 +1160,8 @@ def rodar_watchlist_completa(perfil=None):
                                               confluencia_motivo=confluencia_motivo))
         time.sleep(0.3)
 
-    # --- Ações: sempre no modo TREINO; só no horário no modo USO ---
-    if dentro_horario or TREINAR_LSTM:
-        if not dentro_horario:
-            print("   🧠 Modo treino: analisando ações mesmo fora do horário (só para treinar LSTM)")
+    # --- Ações: só quando o mercado está aberto (dias úteis, 09:30-18:00 BRT) ---
+    if dentro_horario:
         for nome, ticker in ACOES_WATCHLIST.items():
             print(f"   🔎 {nome}")
             df = buscar_acao(ticker, periodo="2y", intervalo="1d")
