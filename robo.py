@@ -88,6 +88,10 @@ VAR_CONFIANCA     = 0.95        # 95% de confiança
 VAR_LIMITE_PCT    = 0.03        # 3% do capital no pior cenário
 VAR_JANELA_DIAS   = 30          # Janela histórica para cálculo
 
+# --- Correlação entre ativos ---
+CORR_LIMITE       = 0.70        # Acima disso, considera "muito correlacionado"
+CORR_JANELA_DIAS  = 60          # Janela de correlação
+
 # --- Perfis ---
 PERFIS = {
     "conservador": {
@@ -1476,6 +1480,47 @@ def verificar_posicoes_abertas(tabela, dfs, perfil=None):
 
     return fechamentos
 
+def calcular_correlacao(df1, df2, janela=None):
+    """
+    Calcula a correlação dos retornos entre dois ativos.
+    Retorna valor entre -1 e 1. Retorna 0 se não houver dados suficientes.
+    """
+    janela = janela or CORR_JANELA_DIAS
+    if df1 is None or df2 is None:
+        return 0.0
+    if len(df1) < 10 or len(df2) < 10:
+        return 0.0
+    try:
+        r1 = df1["close"].pct_change().dropna().tail(janela)
+        r2 = df2["close"].pct_change().dropna().tail(janela)
+        n = min(len(r1), len(r2))
+        if n < 10:
+            return 0.0
+        r1 = r1.tail(n).reset_index(drop=True)
+        r2 = r2.tail(n).reset_index(drop=True)
+        corr = r1.corr(r2)
+        if pd.isna(corr):
+            return 0.0
+        return float(corr)
+    except Exception:
+        return 0.0
+
+
+def ativo_muito_correlacionado(ativo_novo, df_novo, portfolio_aberto, dfs):
+    """
+    Verifica se o novo ativo está muito correlacionado com alguma posição aberta.
+    Retorna (bloqueado: bool, motivo: str, ativo_correlacionado: str, corr: float)
+    """
+    for _, pos in portfolio_aberto.iterrows():
+        ativo_aberto = pos["Ativo"]
+        if ativo_aberto == ativo_novo:
+            continue
+        df_aberto = dfs.get(ativo_aberto)
+        corr = calcular_correlacao(df_novo, df_aberto)
+        if abs(corr) >= CORR_LIMITE:
+            return True, f"correlação {corr:+.2f} com {ativo_aberto}", ativo_aberto, corr
+    return False, "", "", 0.0
+
 def calcular_var_posicao(df, valor_posicao, confianca=None, janela=None):
     """
     Calcula o VaR (Value at Risk) de uma posição com base na volatilidade histórica.
@@ -1638,6 +1683,16 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
         if not pode:
             print(f"   🛡️ {ativo} bloqueado por VaR "
                   f"(atual R$ {var_atual:.2f} + novo R$ {var_novo:.2f} > limite R$ {var_lim:.2f})")
+            continue
+
+        # Correlação: verifica se já tem posição muito correlacionada
+        port_atual = carregar_portfolio()
+        abertas_atual = port_atual[port_atual["Status"] == "ABERTO"]
+        bloqueado, motivo, ativo_corr, corr_val = ativo_muito_correlacionado(
+            ativo, df, abertas_atual, dfs
+        )
+        if bloqueado:
+            print(f"   🔗 {ativo} bloqueado: {motivo}")
             continue
 
         qtd = round(valor_trade / preco, 6)
