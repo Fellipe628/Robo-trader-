@@ -75,7 +75,12 @@ MACRO_TICKERS = {
 }
 
 # --- Parâmetros de trading ---
-VALOR_POR_TRADE = 1000
+VALOR_POR_TRADE = 1000          # Valor de referência (base do Kelly)
+KELLY_CAPITAL   = 10000         # Capital simulado para cálculo
+KELLY_FRACTION  = 0.25          # Quarter-Kelly (conservador)
+KELLY_MIN_PROB  = 0.50          # Abaixo disso, não opera
+KELLY_MIN_VALOR = 500           # Piso: R$ 500 por trade
+KELLY_MAX_VALOR = 1500          # Teto: R$ 1.500 por trade
 MAX_POSICOES    = 7
 
 # --- Perfis ---
@@ -1232,16 +1237,18 @@ def enviar_telegram(mensagem, tentativas=3):
     return False
 
 
-def alerta_compra(ativo, preco, alvo, stop, veredito, lstm_pct, lstm_tend, perfil, estado_cb="normal"):
+def alerta_compra(ativo, preco, alvo, stop, veredito, lstm_pct, lstm_tend, perfil, estado_cb="normal", valor_trade=None):
     lstm_str = f"{lstm_pct:+.2f}% {lstm_tend}" if lstm_pct is not None else "n/a"
     casas = _precisao(preco)
     cb_emoji = {"normal": "🟢", "cauteloso": "🟡", "defensivo": "🔴"}.get(estado_cb, "⚪")
+    valor_str = f"💵 Valor: R$ {valor_trade:,.2f}\n" if valor_trade else ""
     msg = (
         f"🟢 *SINAL DE COMPRA* 🟢\n\n"
         f"📌 Ativo: `{ativo}`\n"
         f"💰 Preço: {preco:,.{casas}f}\n"
         f"🎯 Alvo: {alvo:,.{casas}f}\n"
         f"🛑 Stop inicial: {stop:,.{casas}f}\n"
+        f"{valor_str}"
         f"📊 Veredito: {veredito}\n"
         f"🧠 LSTM: {lstm_str}\n"
         f"⚙️ Perfil: {perfil} | {cb_emoji} CB: {estado_cb}\n\n"
@@ -1464,6 +1471,40 @@ def verificar_posicoes_abertas(tabela, dfs, perfil=None):
 
     return fechamentos
 
+def calcular_kelly(score, preco_entrada, alvo, stop):
+    """
+    Calcula o tamanho ideal da posição via Kelly Criterion.
+    - score: score do sinal (3 a 7+)
+    - payoff: R:R real do trade = (alvo - entrada) / (entrada - stop)
+    Retorna o valor em R$ a ser investido.
+    """
+    # Mapeia score → probabilidade de acerto (calibração inicial)
+    if score >= 7:      prob = 0.70
+    elif score == 6:    prob = 0.65
+    elif score == 5:    prob = 0.60
+    elif score == 4:    prob = 0.55
+    elif score == 3:    prob = 0.52
+    else:               prob = 0.50
+
+    # Payoff (R:R)
+    risco = preco_entrada - stop
+    retorno = alvo - preco_entrada
+    if risco <= 0 or retorno <= 0:
+        return KELLY_MIN_VALOR
+    payoff = retorno / risco
+
+    # Fórmula de Kelly: f* = (p × b - q) / b
+    q = 1 - prob
+    f_kelly = (prob * payoff - q) / payoff
+    if f_kelly <= 0 or prob < KELLY_MIN_PROB:
+        return 0  # Kelly negativo → não opera
+
+    # Fractional Kelly (quarter) + capital
+    valor = KELLY_CAPITAL * f_kelly * KELLY_FRACTION
+
+    # Aplica limites (piso e teto)
+    valor = max(KELLY_MIN_VALOR, min(KELLY_MAX_VALOR, valor))
+    return round(valor, 2)
 
 def abrir_novas_posicoes(tabela, dfs, perfil=None):
     if perfil is None:
@@ -1522,18 +1563,25 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
 
         preco, alvo, stop, atr = calcular_alvo_stop(df, perfil=perfil, tipo=tipo)
         casas = _precisao(preco)
-        valor_trade = VALOR_POR_TRADE * tamanho_pct
+
+        # Kelly Criterion + ajuste do circuit breaker
+        valor_kelly = calcular_kelly(score_ativo or 3, preco, alvo, stop)
+        if valor_kelly <= 0:
+            print(f"   ⚠️ {ativo} Kelly negativo — pulando.")
+            continue
+        valor_trade = valor_kelly * tamanho_pct
         qtd = round(valor_trade / preco, 6)
+
         print(f"   🟢 ABRINDO {ativo} @ {preco:.{casas}f} | "
               f"Alvo {alvo:.{casas}f} | Stop {stop:.{casas}f} | "
-              f"Tamanho {int(tamanho_pct*100)}% | {perfil}")
+              f"Kelly R$ {valor_trade:.2f} | {perfil}")
         registrar_compra(ativo, tipo, round(preco, casas), qtd,
                          round(alvo, casas), round(stop, casas), perfil=perfil)
 
         lstm_pct = row.get("LSTM_variacao")
         lstm_tend = row.get("LSTM_tendencia") or ""
         alerta_compra(ativo, preco, alvo, stop, veredito, lstm_pct, lstm_tend,
-                      perfil, estado_cb)
+                      perfil, estado_cb, valor_trade)
         novas.append(ativo)
 
     return novas
