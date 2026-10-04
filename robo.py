@@ -83,6 +83,11 @@ KELLY_MIN_VALOR = 500           # Piso: R$ 500 por trade
 KELLY_MAX_VALOR = 1500          # Teto: R$ 1.500 por trade
 MAX_POSICOES    = 7
 
+# --- VaR (Value at Risk) ---
+VAR_CONFIANCA     = 0.95        # 95% de confiança
+VAR_LIMITE_PCT    = 0.03        # 3% do capital no pior cenário
+VAR_JANELA_DIAS   = 30          # Janela histórica para cálculo
+
 # --- Perfis ---
 PERFIS = {
     "conservador": {
@@ -1471,6 +1476,62 @@ def verificar_posicoes_abertas(tabela, dfs, perfil=None):
 
     return fechamentos
 
+def calcular_var_posicao(df, valor_posicao, confianca=None, janela=None):
+    """
+    Calcula o VaR (Value at Risk) de uma posição com base na volatilidade histórica.
+    Retorna o valor em R$ que pode ser perdido no pior cenário (95%).
+    """
+    confianca = confianca or VAR_CONFIANCA
+    janela = janela or VAR_JANELA_DIAS
+
+    if df is None or len(df) < janela:
+        # Sem histórico suficiente, assume VaR conservador de 5%
+        return valor_posicao * 0.05
+
+    retornos = df["close"].pct_change().dropna().tail(janela)
+    if len(retornos) < 10:
+        return valor_posicao * 0.05
+
+    # VaR histórico: percentil (1 - confiança)
+    var_pct = abs(np.percentile(retornos, (1 - confianca) * 100))
+    var_rs = var_pct * valor_posicao
+    return var_rs
+
+def calcular_var_portfolio(posicoes, dfs):
+    """
+    Calcula o VaR agregado do portfólio.
+    posicoes: DataFrame com colunas Ativo, Qtd_Restante, Preco_Compra
+    Retorna VaR total em R$.
+    """
+    var_total = 0.0
+    for _, pos in posicoes.iterrows():
+        ativo = pos["Ativo"]
+        qtd = float(pos.get("Qtd_Restante") or pos.get("Qtd") or 0)
+        preco = float(pos.get("Preco_Compra") or 0)
+        valor_pos = qtd * preco
+        if valor_pos <= 0:
+            continue
+        df = dfs.get(ativo)
+        var_pos = calcular_var_posicao(df, valor_pos)
+        var_total += var_pos
+    return var_total
+
+
+def var_permite_abrir(novo_var, dfs):
+    """
+    Verifica se o portfólio comporta uma nova posição.
+    Retorna (pode_abrir: bool, var_atual: float, var_limite: float)
+    """
+    portfolio = carregar_portfolio()
+    abertas = portfolio[portfolio["Status"] == "ABERTO"]
+
+    var_atual = calcular_var_portfolio(abertas, dfs)
+    var_limite = KELLY_CAPITAL * VAR_LIMITE_PCT
+
+    if var_atual + novo_var > var_limite:
+        return False, var_atual, var_limite
+    return True, var_atual, var_limite
+
 def calcular_kelly(score, preco_entrada, alvo, stop):
     """
     Calcula o tamanho ideal da posição via Kelly Criterion.
@@ -1570,6 +1631,15 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
             print(f"   ⚠️ {ativo} Kelly negativo — pulando.")
             continue
         valor_trade = valor_kelly * tamanho_pct
+
+        # VaR: verifica se o portfólio comporta a nova posição
+        var_novo = calcular_var_posicao(df, valor_trade)
+        pode, var_atual, var_lim = var_permite_abrir(var_novo, dfs)
+        if not pode:
+            print(f"   🛡️ {ativo} bloqueado por VaR "
+                  f"(atual R$ {var_atual:.2f} + novo R$ {var_novo:.2f} > limite R$ {var_lim:.2f})")
+            continue
+
         qtd = round(valor_trade / preco, 6)
 
         print(f"   🟢 ABRINDO {ativo} @ {preco:.{casas}f} | "
