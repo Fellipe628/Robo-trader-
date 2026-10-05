@@ -1250,7 +1250,7 @@ def alerta_compra(ativo, preco, alvo, stop, veredito, lstm_pct, lstm_tend, perfi
     lstm_str = f"{lstm_pct:+.2f}% {lstm_tend}" if lstm_pct is not None else "n/a"
     casas = _precisao(preco)
     cb_emoji = {"normal": "🟢", "cauteloso": "🟡", "defensivo": "🔴"}.get(estado_cb, "⚪")
-    valor_str = f"💵 Valor: R$ {valor_trade:,.2f}\n" if valor_trade else ""
+    valor_str = f"💡 Sugestão Kelly: R$ {valor_trade:,.2f}\n" if valor_trade else ""
     msg = (
         f"🟢 *SINAL DE COMPRA* 🟢\n\n"
         f"📌 Ativo: `{ativo}`\n"
@@ -1695,11 +1695,10 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
             print(f"   🔗 {ativo} bloqueado: {motivo}")
             continue
 
-        qtd = round(valor_trade / preco, 6)
-
+        qtd = 1  # 1 ação/unidade — lucro mostrado é por unidade (real do ativo)
         print(f"   🟢 ABRINDO {ativo} @ {preco:.{casas}f} | "
               f"Alvo {alvo:.{casas}f} | Stop {stop:.{casas}f} | "
-              f"Kelly R$ {valor_trade:.2f} | {perfil}")
+              f"💡 Sugestão Kelly: R$ {valor_trade:.2f} | {perfil}")
         registrar_compra(ativo, tipo, round(preco, casas), qtd,
                          round(alvo, casas), round(stop, casas), perfil=perfil)
 
