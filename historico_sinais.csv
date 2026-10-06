@@ -4459,3 +4459,8 @@ DataHora,Ativo,Preco,RSI,Score,Veredito,LSTM_variacao,LSTM_tendencia,Macro_Score
 2026-10-06 00:25:09,SOL,121.02,57.7,3,🟢 COMPRAR,-1.78,📉 QUEDA,1,RSI 58 alto | SMA9>SMA21 | Acima SMA50 | MACD- | Macro +1 | MTF ALTA (2/3) [maior:↑ medio:↑ menor:↓],,2.0
 2026-10-06 00:25:09,BNB,787.54,51.2,5,🟢 COMPRAR,-0.86,📉 QUEDA,1,RSI 51 neutro | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1 | MTF ALTA (2/3) [maior:↑ medio:↑ menor:↓],,2.0
 2026-10-06 00:25:09,ADA,0.2711,77.9,0,🚫 BLOQUEADO,-3.42,📉 QUEDA,1,LSTM -3.4% (queda forte),,2.0
+2026-10-06 01:16:31,BTC,86024.81,64.9,6,🟢 COMPRAR,-0.96,📉 QUEDA,1,RSI 65 alto (atenuado) | SMA9>SMA21 | Acima SMA50 | MACD+ | Bônus tendência | Macro +1 | MTF ALTA (2/3) [maior:↑ medio:↑ menor:↓],,2.0
+2026-10-06 01:16:31,ETH,2717.61,62.2,6,🟢 COMPRAR,-1.0,📉 QUEDA,1,RSI 62 alto (atenuado) | SMA9>SMA21 | Acima SMA50 | MACD+ | Bônus tendência | Macro +1 | MTF ALTA (2/3) [maior:↑ medio:↑ menor:↓],,2.0
+2026-10-06 01:16:31,SOL,121.08,57.9,3,🟢 COMPRAR,-1.89,📉 QUEDA,1,RSI 58 alto | SMA9>SMA21 | Acima SMA50 | MACD- | Macro +1 | MTF ALTA (2/3) [maior:↑ medio:↑ menor:↓],,2.0
+2026-10-06 01:16:31,BNB,785.6,47.7,5,🟢 COMPRAR,-0.61,📉 QUEDA,1,RSI 48 neutro | SMA9>SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +1 | MTF ALTA (2/3) [maior:↑ medio:↑ menor:↓],,2.0
+2026-10-06 01:16:31,ADA,0.2705,77.5,0,🚫 BLOQUEADO,-3.23,📉 QUEDA,1,LSTM -3.2% (queda forte),,2.0
