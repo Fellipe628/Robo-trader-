@@ -39,3 +39,4 @@ ID,Ativo,Tipo,Data_Compra,Preco_Compra,Qtd,Data_Venda,Preco_Venda,Lucro_R$,Lucro
 38,BTC,Cripto,2026-10-02 17:42,84600.34,0.008865,2026-10-05 15:58,85216.859375,5.47,0.73,FECHADO,88541.89,,0.0,81972.65,85405.75,equilibrado,📉 Trailing Stop
 39,BNB,Cripto,2026-10-04 00:11,786.49,1.271472,,,,,ABERTO,818.5,,1.271472,765.15,765.15,equilibrado,
 40,VALE3,Ação,2026-10-06 13:34,71.7,1.0,,,,,ABERTO,76.97,,1.0,69.06,69.06,equilibrado,
+41,PRIO3,Ação,2026-10-06 18:47,62.41,1.0,,,,,ABERTO,68.27,,1.0,59.48,59.48,equilibrado,
