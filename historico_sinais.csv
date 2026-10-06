@@ -4604,3 +4604,18 @@ DataHora,Ativo,Preco,RSI,Score,Veredito,LSTM_variacao,LSTM_tendencia,Macro_Score
 2026-10-06 14:43:38,B3SA3,22.82,82.6,0,🚫 BLOQUEADO,-19.46,📉 QUEDA,4,LSTM -19.5% (queda forte),,2.0
 2026-10-06 14:43:38,PRIO3,63.39,53.2,0,🚫 BLOQUEADO,-4.18,📉 QUEDA,4,LSTM -4.2% (queda forte),,2.0
 2026-10-06 14:43:38,ABEV3,16.31,63.9,0,🚫 BLOQUEADO,-4.56,📉 QUEDA,4,LSTM -4.6% (queda forte),,2.0
+2026-10-06 15:00:22,BTC,86605.92,63.4,7,🟢🟢 COMPRA FORTE,-1.8,📉 QUEDA,2,RSI 63 alto (atenuado) | SMA9>SMA21 | Acima SMA50 | MACD+ | Bônus tendência | Macro +2 | MTF ALTA (3/3) [maior:↑ medio:↑ menor:↑],,2.0
+2026-10-06 15:00:22,ETH,2722.41,58.8,7,🟢🟢 COMPRA FORTE,1.16,📈 ALTA,2,RSI 59 alto (atenuado) | SMA9>SMA21 | Acima SMA50 | MACD+ | Bônus tendência | Macro +2 | MTF ALTA (3/3) [maior:↑ medio:↑ menor:↑],,2.0
+2026-10-06 15:00:22,SOL,121.76,52.7,6,🟢 COMPRAR,-1.14,📉 QUEDA,2,RSI 53 neutro | SMA9<SMA21 | Acima SMA50 | MACD+ | Bônus tendência | Macro +2 | MTF ALTA (2/3) [maior:↑ medio:↓ menor:↑],,2.0
+2026-10-06 15:00:22,BNB,785.87,45.9,0,🟡 AGUARDAR,-0.16,📉 QUEDA,2,RSI 46 neutro | SMA9<SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +2 | MTF BAIXA (2/3) [maior:↑ medio:↓ menor:↓],,-2.0
+2026-10-06 15:00:22,ADA,0.2756,73.7,6,🟢 COMPRAR,-2.41,📉 QUEDA,2,RSI 74 sobrecomprado (atenuado) | SMA9>SMA21 | Acima SMA50 | MACD+ | Bônus tendência | Macro +2 | LSTM -2.4% | MTF ALTA (3/3) [maior:↑ medio:↑ menor:↑],,2.0
+2026-10-06 15:00:22,PETR4,53.97,71.3,0,🚫 BLOQUEADO,-7.08,📉 QUEDA,4,LSTM -7.1% (queda forte),,2.0
+2026-10-06 15:00:22,VALE3,70.23,38.8,3,🟢 COMPRAR,4.48,📈 ALTA,4,RSI 39 baixo (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro +4 | LSTM +4.5% | MTF ALTA (2/3) [maior:↓ medio:↑ menor:↑],,2.0
+2026-10-06 15:00:22,ITUB4,49.85,81.3,0,🚫 BLOQUEADO,-12.71,📉 QUEDA,4,LSTM -12.7% (queda forte),,2.0
+2026-10-06 15:00:22,BBAS3,24.56,60.4,0,🚫 BLOQUEADO,-4.19,📉 QUEDA,4,LSTM -4.2% (queda forte),,2.0
+2026-10-06 15:00:22,WEGE3,50.8,47.1,6,🟢 COMPRAR,-0.01,📉 QUEDA,4,RSI 47 neutro | SMA9<SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +4 | MTF ALTA (2/3) [maior:↓ medio:↑ menor:↑],,2.0
+2026-10-06 15:00:22,ITSA4,16.27,77.5,0,🚫 BLOQUEADO,-11.57,📉 QUEDA,4,LSTM -11.6% (queda forte),,2.0
+2026-10-06 15:00:22,BBDC4,22.42,82.9,0,🚫 BLOQUEADO,-19.77,📉 QUEDA,4,LSTM -19.8% (queda forte),,2.0
+2026-10-06 15:00:22,B3SA3,22.57,80.1,0,🚫 BLOQUEADO,-18.57,📉 QUEDA,4,LSTM -18.6% (queda forte),,2.0
+2026-10-06 15:00:22,PRIO3,63.17,52.3,0,🚫 BLOQUEADO,-3.85,📉 QUEDA,4,LSTM -3.9% (queda forte),,2.0
+2026-10-06 15:00:22,ABEV3,16.28,63.2,0,🚫 BLOQUEADO,-4.39,📉 QUEDA,4,LSTM -4.4% (queda forte),,2.0
