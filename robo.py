@@ -1,7 +1,7 @@
 # ==========================================
-# ROBÔ TRADER — GitHub Actions (v8.2)
-# Cripto 4h + MTF + Macro (VIX/DXY) + LSTM + Trailing ATR
-# Treino cripto 03h + Treino ações 10h (seg-sex)
+# ROBÔ TRADER — GitHub Actions (v9)
+# Cripto 4h + MTF + Macro + LSTM + Trailing ATR
+# Bloqueio inteligente + Score adaptativo + LSTM obrigatório
 # ==========================================
 import os
 import time
@@ -29,11 +29,10 @@ JANELA_STOPS_HORAS     = 24
 
 # --- Regras específicas de Cripto ---
 CRIPTO_TEMPO_MIN_REVERSAO_H = 6
-CRIPTO_SCORE_MIN_EXTRA      = 1
 
 # --- Horário de mercado B3 ---
-B3_HORA_ABERTURA = 9.5    # 09:30 BRT
-B3_HORA_FECHAMENTO = 18.0  # 18:00 BRT
+B3_HORA_ABERTURA = 9.5
+B3_HORA_FECHAMENTO = 18.0
 
 # --- Telegram ---
 TELEGRAM_TOKEN   = os.environ.get("TELEGRAM_TOKEN")
@@ -74,23 +73,48 @@ MACRO_TICKERS = {
     "DXY":    "DX-Y.NYB",
 }
 
+# ==========================================
+# v9 — BLOQUEIO INTELIGENTE
+# ==========================================
+# Ativos com histórico ruim (análise de 08/10/2026)
+# Só liberam com sinal EXCEPCIONAL (5 critérios simultâneos)
+ATIVOS_BLOQUEADOS = ["SOL", "ETH", "BNB", "ADA"]
+
+# Critérios de "sinal excepcional" para liberar bloqueado
+BLOQUEIO_OVERRIDE_SCORE_MIN  = 7      # Score mínimo
+BLOQUEIO_OVERRIDE_LSTM_MIN   = 3.0    # LSTM >= +3%
+BLOQUEIO_OVERRIDE_MTF        = 2      # MTF precisa ser +2
+BLOQUEIO_OVERRIDE_RSI_MIN    = 40     # RSI mínimo
+BLOQUEIO_OVERRIDE_RSI_MAX    = 60     # RSI máximo
+
+# ==========================================
+# v9 — SCORE MÍNIMO ADAPTATIVO
+# ==========================================
+SCORE_MIN_ACAO   = 4    # era 3
+SCORE_MIN_CRIPTO = 5    # era 4
+
+# ==========================================
+# v9 — LSTM OBRIGATÓRIO PARA CRIPTO
+# ==========================================
+LSTM_MIN_CRIPTO = 0.0   # LSTM precisa ser > 0
+
 # --- Parâmetros de trading ---
-VALOR_POR_TRADE = 1000          # Valor de referência (base do Kelly)
-KELLY_CAPITAL   = 10000         # Capital simulado para cálculo
-KELLY_FRACTION  = 0.25          # Quarter-Kelly (conservador)
-KELLY_MIN_PROB  = 0.50          # Abaixo disso, não opera
-KELLY_MIN_VALOR = 500           # Piso: R$ 500 por trade
-KELLY_MAX_VALOR = 1500          # Teto: R$ 1.500 por trade
+VALOR_POR_TRADE = 1000
+KELLY_CAPITAL   = 10000
+KELLY_FRACTION  = 0.25
+KELLY_MIN_PROB  = 0.50
+KELLY_MIN_VALOR = 500
+KELLY_MAX_VALOR = 1500
 MAX_POSICOES    = 7
 
 # --- VaR (Value at Risk) ---
-VAR_CONFIANCA     = 0.95        # 95% de confiança
-VAR_LIMITE_PCT    = 0.03        # 3% do capital no pior cenário
-VAR_JANELA_DIAS   = 30          # Janela histórica para cálculo
+VAR_CONFIANCA     = 0.95
+VAR_LIMITE_PCT    = 0.03
+VAR_JANELA_DIAS   = 30
 
 # --- Correlação entre ativos ---
-CORR_LIMITE       = 0.70        # Acima disso, considera "muito correlacionado"
-CORR_JANELA_DIAS  = 60          # Janela de correlação
+CORR_LIMITE       = 0.70
+CORR_JANELA_DIAS  = 60
 
 # --- Perfis ---
 PERFIS = {
@@ -174,6 +198,10 @@ def _dentro_horario_mercado():
 
 def _e_cripto(ativo):
     return ativo in CRIPTO_WATCHLIST
+
+
+def _ativo_bloqueado(ativo):
+    return ativo in ATIVOS_BLOQUEADOS
 
 
 # ==========================================
@@ -665,6 +693,7 @@ def buscar_mtf(ativo, tipo="Ação"):
 
 
 def calcular_confluencia(dfs_mtf):
+    """v9: MTF peso reduzido de ±2 para ±1"""
     if not dfs_mtf:
         return 0, "sem dados"
     sinais = []
@@ -690,10 +719,11 @@ def calcular_confluencia(dfs_mtf):
     positivos = sum(1 for s in sinais if s > 0)
     negativos = sum(1 for s in sinais if s < 0)
     total = len(sinais)
+    # v9: peso reduzido para ±1
     if positivos >= 2 and positivos > negativos:
-        return 2, f"ALTA ({positivos}/{total}) [{' '.join(detalhes)}]"
+        return 1, f"ALTA ({positivos}/{total}) [{' '.join(detalhes)}]"
     elif negativos >= 2 and negativos > positivos:
-        return -2, f"BAIXA ({negativos}/{total}) [{' '.join(detalhes)}]"
+        return -1, f"BAIXA ({negativos}/{total}) [{' '.join(detalhes)}]"
     else:
         return 0, f"neutro [{' '.join(detalhes)}]"
 
@@ -1480,11 +1510,8 @@ def verificar_posicoes_abertas(tabela, dfs, perfil=None):
 
     return fechamentos
 
+
 def calcular_correlacao(df1, df2, janela=None):
-    """
-    Calcula a correlação dos retornos entre dois ativos.
-    Retorna valor entre -1 e 1. Retorna 0 se não houver dados suficientes.
-    """
     janela = janela or CORR_JANELA_DIAS
     if df1 is None or df2 is None:
         return 0.0
@@ -1507,10 +1534,6 @@ def calcular_correlacao(df1, df2, janela=None):
 
 
 def ativo_muito_correlacionado(ativo_novo, df_novo, portfolio_aberto, dfs):
-    """
-    Verifica se o novo ativo está muito correlacionado com alguma posição aberta.
-    Retorna (bloqueado: bool, motivo: str, ativo_correlacionado: str, corr: float)
-    """
     for _, pos in portfolio_aberto.iterrows():
         ativo_aberto = pos["Ativo"]
         if ativo_aberto == ativo_novo:
@@ -1521,33 +1544,24 @@ def ativo_muito_correlacionado(ativo_novo, df_novo, portfolio_aberto, dfs):
             return True, f"correlação {corr:+.2f} com {ativo_aberto}", ativo_aberto, corr
     return False, "", "", 0.0
 
+
 def calcular_var_posicao(df, valor_posicao, confianca=None, janela=None):
-    """
-    Calcula o VaR (Value at Risk) de uma posição com base na volatilidade histórica.
-    Retorna o valor em R$ que pode ser perdido no pior cenário (95%).
-    """
     confianca = confianca or VAR_CONFIANCA
     janela = janela or VAR_JANELA_DIAS
 
     if df is None or len(df) < janela:
-        # Sem histórico suficiente, assume VaR conservador de 5%
         return valor_posicao * 0.05
 
     retornos = df["close"].pct_change().dropna().tail(janela)
     if len(retornos) < 10:
         return valor_posicao * 0.05
 
-    # VaR histórico: percentil (1 - confiança)
     var_pct = abs(np.percentile(retornos, (1 - confianca) * 100))
     var_rs = var_pct * valor_posicao
     return var_rs
 
+
 def calcular_var_portfolio(posicoes, dfs):
-    """
-    Calcula o VaR agregado do portfólio.
-    posicoes: DataFrame com colunas Ativo, Qtd_Restante, Preco_Compra
-    Retorna VaR total em R$.
-    """
     var_total = 0.0
     for _, pos in posicoes.iterrows():
         ativo = pos["Ativo"]
@@ -1563,10 +1577,6 @@ def calcular_var_portfolio(posicoes, dfs):
 
 
 def var_permite_abrir(novo_var, dfs):
-    """
-    Verifica se o portfólio comporta uma nova posição.
-    Retorna (pode_abrir: bool, var_atual: float, var_limite: float)
-    """
     portfolio = carregar_portfolio()
     abertas = portfolio[portfolio["Status"] == "ABERTO"]
 
@@ -1577,14 +1587,8 @@ def var_permite_abrir(novo_var, dfs):
         return False, var_atual, var_limite
     return True, var_atual, var_limite
 
+
 def calcular_kelly(score, preco_entrada, alvo, stop):
-    """
-    Calcula o tamanho ideal da posição via Kelly Criterion.
-    - score: score do sinal (3 a 7+)
-    - payoff: R:R real do trade = (alvo - entrada) / (entrada - stop)
-    Retorna o valor em R$ a ser investido.
-    """
-    # Mapeia score → probabilidade de acerto (calibração inicial)
     if score >= 7:      prob = 0.70
     elif score == 6:    prob = 0.65
     elif score == 5:    prob = 0.60
@@ -1592,25 +1596,21 @@ def calcular_kelly(score, preco_entrada, alvo, stop):
     elif score == 3:    prob = 0.52
     else:               prob = 0.50
 
-    # Payoff (R:R)
     risco = preco_entrada - stop
     retorno = alvo - preco_entrada
     if risco <= 0 or retorno <= 0:
         return KELLY_MIN_VALOR
     payoff = retorno / risco
 
-    # Fórmula de Kelly: f* = (p × b - q) / b
     q = 1 - prob
     f_kelly = (prob * payoff - q) / payoff
     if f_kelly <= 0 or prob < KELLY_MIN_PROB:
-        return 0  # Kelly negativo → não opera
+        return 0
 
-    # Fractional Kelly (quarter) + capital
     valor = KELLY_CAPITAL * f_kelly * KELLY_FRACTION
-
-    # Aplica limites (piso e teto)
     valor = max(KELLY_MIN_VALOR, min(KELLY_MAX_VALOR, valor))
     return round(valor, 2)
+
 
 def abrir_novas_posicoes(tabela, dfs, perfil=None):
     if perfil is None:
@@ -1641,14 +1641,48 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
         if tipo == "Ação" and not _dentro_horario_mercado():
             continue
 
-        score_minimo = 3 + score_extra
+        # ==========================================
+        # v9 — BLOQUEIO INTELIGENTE (com override excepcional)
+        # ==========================================
+        if _ativo_bloqueado(ativo):
+            score_atual = row.get("Score") or 0
+            lstm_atual = row.get("LSTM_variacao")
+            mtf_atual = row.get("MTF")
+            rsi_atual = row.get("RSI")
+
+            # Checa se é sinal excepcional (todos os 5 critérios)
+            if (score_atual >= BLOQUEIO_OVERRIDE_SCORE_MIN and
+                lstm_atual is not None and lstm_atual >= BLOQUEIO_OVERRIDE_LSTM_MIN and
+                mtf_atual == BLOQUEIO_OVERRIDE_MTF and
+                rsi_atual is not None and
+                BLOQUEIO_OVERRIDE_RSI_MIN <= rsi_atual <= BLOQUEIO_OVERRIDE_RSI_MAX):
+                print(f"   🚀 {ativo} LIBERADO por sinal excepcional "
+                      f"(score {score_atual}, LSTM {lstm_atual:+.2f}%, MTF {mtf_atual}, RSI {rsi_atual:.0f})")
+            else:
+                print(f"   🔒 {ativo} bloqueado (histórico ruim — aguardando sinal excepcional)")
+                continue
+
+        # ==========================================
+        # v9 — SCORE MÍNIMO ADAPTATIVO
+        # ==========================================
         if tipo == "Cripto":
-            score_minimo += CRIPTO_SCORE_MIN_EXTRA
+            score_minimo = SCORE_MIN_CRIPTO + score_extra
+        else:
+            score_minimo = SCORE_MIN_ACAO + score_extra
 
         score_ativo = row.get("Score")
         if score_ativo is not None and score_ativo < score_minimo:
             print(f"   ⚠️ {ativo} score {score_ativo} < mínimo {score_minimo} (CB {estado_cb}, {tipo})")
             continue
+
+        # ==========================================
+        # v9 — LSTM OBRIGATÓRIO PARA CRIPTO
+        # ==========================================
+        if tipo == "Cripto":
+            lstm_val = row.get("LSTM_variacao")
+            if lstm_val is None or lstm_val <= LSTM_MIN_CRIPTO:
+                print(f"   🧠 {ativo} bloqueado: LSTM {lstm_val} (precisa > {LSTM_MIN_CRIPTO} para cripto)")
+                continue
 
         if em_cooldown(ativo):
             print(f"   ⏸️ {ativo} em cooldown, pulando.")
@@ -1670,14 +1704,14 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
         preco, alvo, stop, atr = calcular_alvo_stop(df, perfil=perfil, tipo=tipo)
         casas = _precisao(preco)
 
-        # Kelly Criterion + ajuste do circuit breaker
+        # Kelly Criterion
         valor_kelly = calcular_kelly(score_ativo or 3, preco, alvo, stop)
         if valor_kelly <= 0:
             print(f"   ⚠️ {ativo} Kelly negativo — pulando.")
             continue
         valor_trade = valor_kelly * tamanho_pct
 
-        # VaR: verifica se o portfólio comporta a nova posição
+        # VaR
         var_novo = calcular_var_posicao(df, valor_trade)
         pode, var_atual, var_lim = var_permite_abrir(var_novo, dfs)
         if not pode:
@@ -1685,7 +1719,7 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
                   f"(atual R$ {var_atual:.2f} + novo R$ {var_novo:.2f} > limite R$ {var_lim:.2f})")
             continue
 
-        # Correlação: verifica se já tem posição muito correlacionada
+        # Correlação
         port_atual = carregar_portfolio()
         abertas_atual = port_atual[port_atual["Status"] == "ABERTO"]
         bloqueado, motivo, ativo_corr, corr_val = ativo_muito_correlacionado(
@@ -1695,7 +1729,7 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
             print(f"   🔗 {ativo} bloqueado: {motivo}")
             continue
 
-        qtd = 1  # 1 ação/unidade — lucro mostrado é por unidade (real do ativo)
+        qtd = 1
         print(f"   🟢 ABRINDO {ativo} @ {preco:.{casas}f} | "
               f"Alvo {alvo:.{casas}f} | Stop {stop:.{casas}f} | "
               f"💡 Sugestão Kelly: R$ {valor_trade:.2f} | {perfil}")
@@ -1822,11 +1856,13 @@ def main():
 
 def _main_interno():
     print("=" * 75)
-    print("🤖 ROBÔ TRADER — CICLO GITHUB ACTIONS (v8.2)")
+    print("🤖 ROBÔ TRADER — CICLO GITHUB ACTIONS (v9)")
     print(f"📅 {datetime.now().strftime('%d/%m/%Y %H:%M')}")
     print(f"⚙️ Perfil: {PERFIL_ATIVO}")
     print(f"🧠 LSTM: {'TREINAR + USAR' if TREINAR_LSTM else 'USAR SALVO (ou pular)'}")
     print(f"🎯 Trailing: ATR × ação/cripto")
+    print(f"🔒 Ativos bloqueados: {', '.join(ATIVOS_BLOQUEADOS)}")
+    print(f"📊 Score mín: Ação {SCORE_MIN_ACAO} | Cripto {SCORE_MIN_CRIPTO}")
 
     estado_cb, _, _, _ = verificar_circuit_breaker()
     print(f"🔌 Circuit breaker: {estado_cb.upper()}")
