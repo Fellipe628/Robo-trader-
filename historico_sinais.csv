@@ -5954,3 +5954,18 @@ DataHora,Ativo,Preco,RSI,Score,Veredito,LSTM_variacao,LSTM_tendencia,Macro_Score
 2026-10-09 19:43:48,B3SA3,23.22,78.5,0.0,🚫 BLOQUEADO,-16.0,📉 QUEDA,4,LSTM -16.0% (queda forte),,1.0
 2026-10-09 19:43:48,PRIO3,64.25,62.3,0.0,🚫 BLOQUEADO,-3.92,📉 QUEDA,4,LSTM -3.9% (queda forte),,1.0
 2026-10-09 19:43:48,ABEV3,15.98,58.7,6.0,🟢 COMPRAR,-0.77,📉 QUEDA,4,RSI 59 alto (atenuado) | SMA9>SMA21 | Acima SMA50 | MACD+ | Bônus tendência | Macro +4 | MTF BAIXA (2/3) [maior:↑ medio:↓ menor:↓],,-1.0
+2026-10-09 19:57:14,BTC,82232.95,40.2,1.0,🟡 AGUARDAR,1.08,📈 ALTA,2,RSI 40 baixo (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro +2 | MTF ALTA (2/3) [maior:↑ medio:↓ menor:↑],,1.0
+2026-10-09 19:57:14,ETH,2474.41,31.1,-1.0,🟡 AGUARDAR,3.24,📈 ALTA,2,RSI 31 sobrevendido (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro +2 | LSTM +3.2% | MTF BAIXA (3/3) [maior:↓ medio:↓ menor:↓],,-1.0
+2026-10-09 19:57:14,SOL,108.56,21.9,-1.0,🟡 AGUARDAR,5.6,📈 ALTA,2,RSI 22 sobrevendido (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro +2 | LSTM +5.6% | MTF BAIXA (3/3) [maior:↓ medio:↓ menor:↓],,-1.0
+2026-10-09 19:57:14,BNB,736.92,25.9,-1.0,🟡 AGUARDAR,2.99,📈 ALTA,2,RSI 26 sobrevendido (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro +2 | LSTM +3.0% | MTF BAIXA (3/3) [maior:↓ medio:↓ menor:↓],,-1.0
+2026-10-09 19:57:14,ADA,0.2355,23.4,1.0,🟡 AGUARDAR,4.1,📈 ALTA,2,RSI 23 sobrevendido (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro +2 | LSTM +4.1% | MTF ALTA (2/3) [maior:↑ medio:↓ menor:↑],,1.0
+2026-10-09 19:57:14,PETR4,56.1,78.4,0.0,🚫 BLOQUEADO,-6.84,📉 QUEDA,4,LSTM -6.8% (queda forte),,1.0
+2026-10-09 19:57:14,VALE3,67.85,29.8,1.0,🟡 AGUARDAR,6.85,📈 ALTA,4,RSI 30 sobrevendido (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro +4 | LSTM +6.8% | MTF BAIXA (3/3) [maior:↓ medio:↓ menor:↓],,-1.0
+2026-10-09 19:57:14,ITUB4,50.59,77.0,0.0,🚫 BLOQUEADO,-10.06,📉 QUEDA,4,LSTM -10.1% (queda forte),,1.0
+2026-10-09 19:57:14,BBAS3,24.71,59.4,8.0,🟢🟢 COMPRA FORTE,-0.18,📉 QUEDA,4,RSI 59 alto (atenuado) | SMA9>SMA21 | Acima SMA50 | MACD+ | Bônus tendência | Macro +4 | MTF ALTA (3/3) [maior:↑ medio:↑ menor:↑],,1.0
+2026-10-09 19:57:14,WEGE3,51.39,51.9,5.0,🟢 COMPRAR,-1.32,📉 QUEDA,4,RSI 52 neutro | SMA9<SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +4 | MTF ALTA (2/3) [maior:↓ medio:↑ menor:↑],,1.0
+2026-10-09 19:57:14,ITSA4,16.22,72.7,0.0,🚫 BLOQUEADO,-9.06,📉 QUEDA,4,LSTM -9.1% (queda forte),,1.0
+2026-10-09 19:57:14,BBDC4,21.61,72.2,0.0,🚫 BLOQUEADO,-10.1,📉 QUEDA,4,LSTM -10.1% (queda forte),,-1.0
+2026-10-09 19:57:14,B3SA3,23.3,78.7,0.0,🚫 BLOQUEADO,-16.29,📉 QUEDA,4,LSTM -16.3% (queda forte),,1.0
+2026-10-09 19:57:14,PRIO3,64.23,62.2,0.0,🚫 BLOQUEADO,-3.89,📉 QUEDA,4,LSTM -3.9% (queda forte),,1.0
+2026-10-09 19:57:14,ABEV3,16.05,60.2,6.0,🟢 COMPRAR,-1.21,📉 QUEDA,4,RSI 60 alto (atenuado) | SMA9>SMA21 | Acima SMA50 | MACD+ | Bônus tendência | Macro +4 | MTF BAIXA (2/3) [maior:↑ medio:↓ menor:↓],,-1.0
