@@ -6169,3 +6169,8 @@ DataHora,Ativo,Preco,RSI,Score,Veredito,LSTM_variacao,LSTM_tendencia,Macro_Score
 2026-10-10 19:57:02,SOL,110.36,62.1,-2.0,🟡 AGUARDAR,-0.63,📉 QUEDA,2,RSI 62 alto | SMA9<SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro +2 | MTF BAIXA (2/3) [maior:↓ medio:↓ menor:↑],,-1.0
 2026-10-10 19:57:02,BNB,750.68,75.5,-4.0,🔴 VENDER,0.67,📈 ALTA,2,RSI 76 sobrecomprado | SMA9<SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro +2 | MTF BAIXA (2/3) [maior:↓ medio:↓ menor:↑],,-1.0
 2026-10-10 19:57:02,ADA,0.2524,80.5,1.0,🟡 AGUARDAR,0.89,📈 ALTA,2,RSI 80 sobrecomprado | SMA9>SMA21 | Abaixo SMA50 | MACD+ | Macro +2 | MTF ALTA (3/3) [maior:↑ medio:↑ menor:↑],,1.0
+2026-10-10 20:09:44,BTC,83020.38,70.0,1.0,🟡 AGUARDAR,0.33,📈 ALTA,2,RSI 70 sobrecomprado | SMA9>SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro +2 | MTF ALTA (2/3) [maior:↓ medio:↑ menor:↑],,1.0
+2026-10-10 20:09:44,ETH,2510.85,72.2,-3.0,🔴 VENDER,1.2,📈 ALTA,2,RSI 72 sobrecomprado | SMA9<SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro +2 | MTF BAIXA (2/3) [maior:↓ medio:↓ menor:↑],,-1.0
+2026-10-10 20:09:44,SOL,110.32,58.6,-2.0,🟡 AGUARDAR,-0.59,📉 QUEDA,2,RSI 59 alto | SMA9<SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro +2 | MTF BAIXA (2/3) [maior:↓ medio:↓ menor:↑],,-1.0
+2026-10-10 20:09:44,BNB,750.59,78.1,-4.0,🔴 VENDER,0.69,📈 ALTA,2,RSI 78 sobrecomprado | SMA9<SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro +2 | MTF BAIXA (2/3) [maior:↓ medio:↓ menor:↑],,-1.0
+2026-10-10 20:09:44,ADA,0.2531,80.9,3.0,🟢 COMPRAR,0.6,📈 ALTA,2,RSI 81 sobrecomprado | SMA9>SMA21 | Acima SMA50 | MACD+ | Macro +2 | MTF ALTA (3/3) [maior:↑ medio:↑ menor:↑],,1.0
