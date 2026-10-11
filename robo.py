@@ -1,7 +1,7 @@
 # ==========================================
-# ROBÔ TRADER — GitHub Actions (v9)
+# ROBÔ TRADER — GitHub Actions (v10)
 # Cripto 4h + MTF + Macro + LSTM + Trailing ATR
-# Bloqueio inteligente + Score adaptativo + LSTM obrigatório
+# Bloqueio inteligente + Score adaptativo + Comandos Telegram
 # ==========================================
 import os
 import time
@@ -19,6 +19,7 @@ ARQUIVO_COOLDOWN = f"{PASTA}/cooldowns.csv"
 ARQUIVO_CIRCUIT = f"{PASTA}/circuit_breaker.json"
 ARQUIVO_STOPS_PEND = f"{PASTA}/stops_pendentes.csv"
 ARQUIVO_REVERSOES_PEND = f"{PASTA}/reversoes_pendentes.csv"
+ARQUIVO_TG_STATE = f"{PASTA}/telegram_state.json"
 COOLDOWN_HORAS   = 6
 
 # --- Circuit Breaker ---
@@ -74,29 +75,25 @@ MACRO_TICKERS = {
 }
 
 # ==========================================
-# v9 — BLOQUEIO INTELIGENTE
+# BLOQUEIO INTELIGENTE
 # ==========================================
-# Ativos com histórico ruim (análise de 08/10/2026)
-# Só liberam com sinal EXCEPCIONAL (5 critérios simultâneos)
 ATIVOS_BLOQUEADOS = ["SOL", "ETH", "BNB", "ADA"]
-
-# Critérios de "sinal excepcional" para liberar bloqueado
-BLOQUEIO_OVERRIDE_SCORE_MIN  = 7      # Score mínimo
-BLOQUEIO_OVERRIDE_LSTM_MIN   = 3.0    # LSTM >= +3%
-BLOQUEIO_OVERRIDE_MTF        = 2      # MTF precisa ser +2
-BLOQUEIO_OVERRIDE_RSI_MIN    = 40     # RSI mínimo
-BLOQUEIO_OVERRIDE_RSI_MAX    = 60     # RSI máximo
+BLOQUEIO_OVERRIDE_SCORE_MIN  = 7
+BLOQUEIO_OVERRIDE_LSTM_MIN   = 3.0
+BLOQUEIO_OVERRIDE_MTF        = 2
+BLOQUEIO_OVERRIDE_RSI_MIN    = 40
+BLOQUEIO_OVERRIDE_RSI_MAX    = 60
 
 # ==========================================
-# v9 — SCORE MÍNIMO ADAPTATIVO
+# SCORE MÍNIMO ADAPTATIVO
 # ==========================================
-SCORE_MIN_ACAO   = 4    # era 3
-SCORE_MIN_CRIPTO = 5    # era 4
+SCORE_MIN_ACAO   = 4
+SCORE_MIN_CRIPTO = 5
 
 # ==========================================
-# v9 — LSTM OBRIGATÓRIO PARA CRIPTO
+# LSTM OBRIGATÓRIO PARA CRIPTO
 # ==========================================
-LSTM_MIN_CRIPTO = 0.0   # LSTM precisa ser > 0
+LSTM_MIN_CRIPTO = 0.0
 
 # --- Parâmetros de trading ---
 VALOR_POR_TRADE = 1000
@@ -107,12 +104,12 @@ KELLY_MIN_VALOR = 500
 KELLY_MAX_VALOR = 1500
 MAX_POSICOES    = 7
 
-# --- VaR (Value at Risk) ---
+# --- VaR ---
 VAR_CONFIANCA     = 0.95
 VAR_LIMITE_PCT    = 0.03
 VAR_JANELA_DIAS   = 30
 
-# --- Correlação entre ativos ---
+# --- Correlação ---
 CORR_LIMITE       = 0.70
 CORR_JANELA_DIAS  = 60
 
@@ -693,7 +690,6 @@ def buscar_mtf(ativo, tipo="Ação"):
 
 
 def calcular_confluencia(dfs_mtf):
-    """v9: MTF peso reduzido de ±2 para ±1"""
     if not dfs_mtf:
         return 0, "sem dados"
     sinais = []
@@ -719,7 +715,6 @@ def calcular_confluencia(dfs_mtf):
     positivos = sum(1 for s in sinais if s > 0)
     negativos = sum(1 for s in sinais if s < 0)
     total = len(sinais)
-    # v9: peso reduzido para ±1
     if positivos >= 2 and positivos > negativos:
         return 1, f"ALTA ({positivos}/{total}) [{' '.join(detalhes)}]"
     elif negativos >= 2 and negativos > positivos:
@@ -1358,6 +1353,177 @@ def alerta_reversao_pendente(ativo, preco_atual):
 
 
 # ==========================================
+# TELEGRAM — COMANDOS
+# ==========================================
+def _carregar_tg_state():
+    if os.path.exists(ARQUIVO_TG_STATE):
+        try:
+            with open(ARQUIVO_TG_STATE, "r") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {"offset": 0, "pausado": False, "ultimo_ciclo": None}
+
+
+def _salvar_tg_state(state):
+    with open(ARQUIVO_TG_STATE, "w") as f:
+        json.dump(state, f, indent=2)
+
+
+def _tg_pausado():
+    return _carregar_tg_state().get("pausado", False)
+
+
+def _cmd_help():
+    return (
+        "🤖 *COMANDOS DISPONÍVEIS*\n\n"
+        "*/ping* — Robô está ativo?\n"
+        "*/status* — Status completo\n"
+        "*/portfolio* — Posições abertas\n"
+        "*/sinais* — Últimos sinais\n"
+        "*/bloqueados* — Ativos em bloqueio\n"
+        "*/pausar* — Pausa novas entradas\n"
+        "*/retomar* — Retoma operação\n"
+        "*/help* — Esta lista"
+    )
+
+
+def _cmd_ping():
+    agora = datetime.now().strftime("%d/%m/%Y %H:%M")
+    s = _carregar_tg_state()
+    ultimo = s.get("ultimo_ciclo") or "primeira execução"
+    cb = _carregar_circuit_breaker()
+    pausado = "⏸️ SIM" if s.get("pausado") else "▶️ NÃO"
+    return (
+        f"🏓 *PONG!*\n\n"
+        f"✅ Robô *ATIVO*\n"
+        f"📅 Agora: {agora}\n"
+        f"⏱️ Último ciclo: {ultimo}\n"
+        f"🔌 CB: {cb['estado'].upper()}\n"
+        f"⏸️ Pausado: {pausado}"
+    )
+
+
+def _cmd_status():
+    cb = _carregar_circuit_breaker()
+    portfolio = carregar_portfolio()
+    abertas = len(portfolio[portfolio["Status"] == "ABERTO"])
+    fechadas = len(portfolio[portfolio["Status"] == "FECHADO"])
+    s = _carregar_tg_state()
+    pausado = "⏸️ SIM" if s.get("pausado") else "▶️ NÃO"
+    agora = datetime.now().strftime("%d/%m/%Y %H:%M")
+    return (
+        f"📊 *STATUS DO ROBÔ*\n\n"
+        f"📅 {agora}\n"
+        f"🔌 Circuit Breaker: *{cb['estado'].upper()}*\n"
+        f"⏸️ Pausado manualmente: {pausado}\n"
+        f"💼 Posições abertas: {abertas}\n"
+        f"📁 Fechadas: {fechadas}\n"
+        f"🔒 Bloqueados: {', '.join(ATIVOS_BLOQUEADOS)}"
+    )
+
+
+def _cmd_portfolio():
+    df = carregar_portfolio()
+    abertas = df[df["Status"] == "ABERTO"]
+    if abertas.empty:
+        return "💼 *PORTFÓLIO VAZIO*\n\nNenhuma posição aberta."
+    linhas = ["💼 *POSIÇÕES ABERTAS*\n"]
+    for _, p in abertas.iterrows():
+        linhas.append(
+            f"📌 `{p['Ativo']}` | Entrada: {p['Preco_Compra']:.2f} | "
+            f"Alvo: {p['Alvo']:.2f} | Stop: {p['Stop_Atual']:.2f}"
+        )
+    return "\n".join(linhas)
+
+
+def _cmd_sinais():
+    if not os.path.exists(ARQUIVO_LOG):
+        return "📭 Sem histórico de sinais."
+    try:
+        df = pd.read_csv(ARQUIVO_LOG)
+        ultimo = df["DataHora"].max()
+        df_ult = df[df["DataHora"] == ultimo]
+        linhas = [f"📊 *SINAIS — {ultimo}*\n"]
+        for _, r in df_ult.iterrows():
+            linhas.append(f"`{r['Ativo']:<6}` Score {r['Score']:>3} | {r['Veredito']}")
+        return "\n".join(linhas)
+    except Exception:
+        return "📭 Sem sinais disponíveis."
+
+
+def _cmd_bloqueados():
+    if not ATIVOS_BLOQUEADOS:
+        return "✅ Nenhum ativo bloqueado."
+    return (
+        f"🔒 *ATIVOS BLOQUEADOS*\n\n"
+        + "\n".join(f"• {a}" for a in ATIVOS_BLOQUEADOS)
+        + "\n\n_Só liberam com sinal excepcional_"
+    )
+
+
+def processar_comando(msg):
+    cmd = msg.split()[0].lower()
+    if cmd in ["/help", "/start"]:
+        return _cmd_help()
+    elif cmd == "/ping":
+        return _cmd_ping()
+    elif cmd == "/status":
+        return _cmd_status()
+    elif cmd == "/portfolio":
+        return _cmd_portfolio()
+    elif cmd == "/sinais":
+        return _cmd_sinais()
+    elif cmd == "/bloqueados":
+        return _cmd_bloqueados()
+    elif cmd == "/pausar":
+        s = _carregar_tg_state()
+        s["pausado"] = True
+        _salvar_tg_state(s)
+        return "⏸️ *ROBÔ PAUSADO*\n\nNovas entradas bloqueadas.\nPosições abertas continuam sendo gerenciadas."
+    elif cmd == "/retomar":
+        s = _carregar_tg_state()
+        s["pausado"] = False
+        _salvar_tg_state(s)
+        return "▶️ *ROBÔ RETOMADO*\n\nNovas entradas liberadas."
+    else:
+        return None
+
+
+def processar_comandos_telegram():
+    """Chamado no início de cada ciclo. Lê comandos novos e responde."""
+    if not _tg_ok:
+        return
+    state = _carregar_tg_state()
+    offset = state.get("offset", 0)
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates"
+    try:
+        r = requests.get(url, params={"offset": offset, "timeout": 0}, timeout=10)
+        if r.status_code != 200:
+            return
+        data = r.json()
+        updates = data.get("result", [])
+        for u in updates:
+            uid = u.get("update_id", 0)
+            msg_obj = u.get("message", {})
+            chat_id = str(msg_obj.get("chat", {}).get("id", ""))
+            if chat_id != str(TELEGRAM_CHAT_ID):
+                offset = uid + 1
+                continue
+            msg = msg_obj.get("text", "")
+            if msg.startswith("/"):
+                resposta = processar_comando(msg)
+                if resposta:
+                    enviar_telegram(resposta)
+            offset = uid + 1
+        state["offset"] = offset
+        state["ultimo_ciclo"] = datetime.now().strftime("%d/%m/%Y %H:%M")
+        _salvar_tg_state(state)
+    except Exception as e:
+        print(f"⚠️ Erro comandos Telegram: {e}")
+
+
+# ==========================================
 # AUTO-TRADING
 # ==========================================
 def verificar_posicoes_abertas(tabela, dfs, perfil=None):
@@ -1623,6 +1789,10 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
         print(f"   ⏸️ PAUSADO (circuit breaker defensivo). Sem novas entradas.")
         return []
 
+    if _tg_pausado():
+        print(f"   ⏸️ PAUSADO manualmente via Telegram. Sem novas entradas.")
+        return []
+
     portfolio = carregar_portfolio()
     if len(portfolio[portfolio["Status"] == "ABERTO"]) >= MAX_POSICOES:
         print(f"   ⛔ Limite de {MAX_POSICOES} posições atingido. Pulando novas aberturas.")
@@ -1642,7 +1812,7 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
             continue
 
         # ==========================================
-        # v9 — BLOQUEIO INTELIGENTE (com override excepcional)
+        # BLOQUEIO INTELIGENTE (com override excepcional)
         # ==========================================
         if _ativo_bloqueado(ativo):
             score_atual = row.get("Score") or 0
@@ -1650,7 +1820,6 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
             mtf_atual = row.get("MTF")
             rsi_atual = row.get("RSI")
 
-            # Checa se é sinal excepcional (todos os 5 critérios)
             if (score_atual >= BLOQUEIO_OVERRIDE_SCORE_MIN and
                 lstm_atual is not None and lstm_atual >= BLOQUEIO_OVERRIDE_LSTM_MIN and
                 mtf_atual == BLOQUEIO_OVERRIDE_MTF and
@@ -1663,7 +1832,7 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
                 continue
 
         # ==========================================
-        # v9 — SCORE MÍNIMO ADAPTATIVO
+        # SCORE MÍNIMO ADAPTATIVO
         # ==========================================
         if tipo == "Cripto":
             score_minimo = SCORE_MIN_CRIPTO + score_extra
@@ -1676,7 +1845,7 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
             continue
 
         # ==========================================
-        # v9 — LSTM OBRIGATÓRIO PARA CRIPTO
+        # LSTM OBRIGATÓRIO PARA CRIPTO
         # ==========================================
         if tipo == "Cripto":
             lstm_val = row.get("LSTM_variacao")
@@ -1855,14 +2024,18 @@ def main():
 
 
 def _main_interno():
+    # v10: processa comandos do Telegram antes de tudo
+    processar_comandos_telegram()
+
     print("=" * 75)
-    print("🤖 ROBÔ TRADER — CICLO GITHUB ACTIONS (v9)")
+    print("🤖 ROBÔ TRADER — CICLO GITHUB ACTIONS (v10)")
     print(f"📅 {datetime.now().strftime('%d/%m/%Y %H:%M')}")
     print(f"⚙️ Perfil: {PERFIL_ATIVO}")
     print(f"🧠 LSTM: {'TREINAR + USAR' if TREINAR_LSTM else 'USAR SALVO (ou pular)'}")
     print(f"🎯 Trailing: ATR × ação/cripto")
     print(f"🔒 Ativos bloqueados: {', '.join(ATIVOS_BLOQUEADOS)}")
     print(f"📊 Score mín: Ação {SCORE_MIN_ACAO} | Cripto {SCORE_MIN_CRIPTO}")
+    print(f"📱 Comandos Telegram: /help /ping /status /portfolio /sinais /bloqueados /pausar /retomar")
 
     estado_cb, _, _, _ = verificar_circuit_breaker()
     print(f"🔌 Circuit breaker: {estado_cb.upper()}")
