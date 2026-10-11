@@ -82,6 +82,6 @@ jobs:
         run: |
           git config user.name "robo-trader-bot"
           git config user.email "bot@robo-trader.local"
-          git add portfolio.csv historico_sinais.csv cooldowns.csv circuit_breaker.json stops_pendentes.csv reversoes_pendentes.csv 2>/dev/null || true
+          git add portfolio.csv historico_sinais.csv cooldowns.csv circuit_breaker.json stops_pendentes.csv reversoes_pendentes.csv telegram_state.json 2>/dev/null || true
           git commit -m "🤖 Atualiza dados [skip ci]" || echo "Sem mudanças para commitar"
-          git push
+          git push  
