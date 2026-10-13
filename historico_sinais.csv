@@ -6899,3 +6899,18 @@ DataHora,Ativo,Preco,RSI,Score,Veredito,LSTM_variacao,LSTM_tendencia,Macro_Score
 2026-10-13 16:01:04,B3SA3,22.83,73.9,0.0,🚫 BLOQUEADO,-10.91,📉 QUEDA,2,LSTM -10.9% (queda forte),,1.0
 2026-10-13 16:01:04,PRIO3,66.25,70.0,0.0,🚫 BLOQUEADO,-5.64,📉 QUEDA,2,LSTM -5.6% (queda forte),,1.0
 2026-10-13 16:01:04,ABEV3,16.16,59.9,0.0,🚫 BLOQUEADO,-3.06,📉 QUEDA,2,LSTM -3.1% (queda forte),,1.0
+2026-10-13 16:24:12,BTC,83417.74,46.8,1.0,🟡 AGUARDAR,-0.71,📉 QUEDA,1,RSI 47 neutro | SMA9<SMA21 | Acima SMA50 | MACD+ | Macro +1 | MTF BAIXA (2/3) [maior:↓ medio:↓ menor:↑],,-1.0
+2026-10-13 16:24:12,ETH,2516.32,47.0,-2.0,🟡 AGUARDAR,-0.63,📉 QUEDA,1,RSI 47 neutro | SMA9<SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro +1 | MTF BAIXA (2/3) [maior:↓ medio:↓ menor:↑],,-1.0
+2026-10-13 16:24:12,SOL,107.62,36.7,-4.0,🔴 VENDER,0.87,📈 ALTA,1,RSI 37 baixo (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro +1 | MTF BAIXA (2/3) [maior:↓ medio:↓ menor:↑],,-1.0
+2026-10-13 16:24:12,BNB,744.9,41.5,-2.0,🟡 AGUARDAR,0.05,📈 ALTA,1,RSI 42 baixo (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro +1 | MTF BAIXA (2/3) [maior:↓ medio:↓ menor:↑],,-1.0
+2026-10-13 16:24:12,ADA,0.2354,28.9,-2.0,🟡 AGUARDAR,3.1,📈 ALTA,1,RSI 29 sobrevendido (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro +1 | LSTM +3.1% | MTF BAIXA (3/3) [maior:↓ medio:↓ menor:↓],,-1.0
+2026-10-13 16:24:12,PETR4,56.67,78.8,0.0,🚫 BLOQUEADO,-6.0,📉 QUEDA,2,LSTM -6.0% (queda forte),,1.0
+2026-10-13 16:24:12,VALE3,67.16,26.7,-1.0,🟡 AGUARDAR,5.78,📈 ALTA,2,RSI 27 sobrevendido (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro +2 | LSTM +5.8% | MTF BAIXA (3/3) [maior:↓ medio:↓ menor:↓],,-1.0
+2026-10-13 16:24:12,ITUB4,49.67,72.4,0.0,🚫 BLOQUEADO,-8.9,📉 QUEDA,2,LSTM -8.9% (queda forte),,1.0
+2026-10-13 16:24:12,BBAS3,24.39,59.6,7.0,🟢🟢 COMPRA FORTE,2.57,📈 ALTA,2,RSI 60 alto (atenuado) | SMA9>SMA21 | Acima SMA50 | MACD+ | Bônus tendência | Macro +2 | LSTM +2.6% | MTF ALTA (3/3) [maior:↑ medio:↑ menor:↑],,1.0
+2026-10-13 16:24:12,WEGE3,51.08,45.3,1.0,🟡 AGUARDAR,-1.21,📉 QUEDA,2,RSI 45 neutro | SMA9<SMA21 | Acima SMA50 | MACD- | Bônus tendência | Macro +2 | MTF BAIXA (3/3) [maior:↓ medio:↓ menor:↓],,-1.0
+2026-10-13 16:24:12,ITSA4,15.97,67.5,0.0,🚫 BLOQUEADO,-8.34,📉 QUEDA,2,LSTM -8.3% (queda forte),,-1.0
+2026-10-13 16:24:12,BBDC4,21.27,68.1,0.0,🚫 BLOQUEADO,-6.1,📉 QUEDA,2,LSTM -6.1% (queda forte),,-1.0
+2026-10-13 16:24:12,B3SA3,22.81,73.8,0.0,🚫 BLOQUEADO,-10.83,📉 QUEDA,2,LSTM -10.8% (queda forte),,1.0
+2026-10-13 16:24:12,PRIO3,66.58,70.7,0.0,🚫 BLOQUEADO,-6.11,📉 QUEDA,2,LSTM -6.1% (queda forte),,1.0
+2026-10-13 16:24:12,ABEV3,16.16,59.9,0.0,🚫 BLOQUEADO,-3.06,📉 QUEDA,2,LSTM -3.1% (queda forte),,1.0
