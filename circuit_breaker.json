@@ -1,7 +1,7 @@
 {
-  "stops_24h": 1,
-  "stops_consecutivos": 0,
-  "ultimo_stop": "2026-10-14T13:31:12.549981",
-  "estado": "normal",
-  "atualizado_em": "2026-10-14T15:16:06.267794"
+  "stops_24h": 2,
+  "stops_consecutivos": 1,
+  "ultimo_stop": "2026-10-14T17:43:55.634488",
+  "estado": "cauteloso",
+  "atualizado_em": "2026-10-14T17:43:55.634498"
 }
