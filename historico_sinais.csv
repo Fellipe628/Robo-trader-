@@ -8229,3 +8229,8 @@ DataHora,Ativo,Preco,RSI,Score,Veredito,LSTM_variacao,LSTM_tendencia,Macro_Score
 2026-10-19 11:22:21,SOL,104.51,48.5,-4.0,🔴 VENDER,-0.51,📉 QUEDA,-1,RSI 48 neutro | SMA9<SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro -1 | MTF BAIXA (2/3) [maior:↓ medio:↓ menor:↑],,-1.0
 2026-10-19 11:22:21,BNB,724.26,52.3,-4.0,🔴 VENDER,-0.12,📉 QUEDA,-1,RSI 52 neutro | SMA9<SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro -1 | MTF BAIXA (2/3) [maior:↓ medio:↓ menor:↑],,-1.0
 2026-10-19 11:22:21,ADA,0.2176,41.7,-4.0,🔴 VENDER,1.41,📈 ALTA,-1,RSI 42 baixo (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro -1 | MTF BAIXA (2/3) [maior:↓ medio:↓ menor:↑],,-1.0
+2026-10-19 12:00:49,BTC,82283.13,56.3,-1.0,🟡 AGUARDAR,-1.53,📉 QUEDA,-1,RSI 56 alto | SMA9>SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro -1 | MTF ALTA (2/3) [maior:↓ medio:↑ menor:↑],,1.0
+2026-10-19 12:00:49,ETH,2418.66,47.7,0.0,🚫 BLOQUEADO,-3.15,📉 QUEDA,-1,LSTM -3.1% (queda forte),,-1.0
+2026-10-19 12:00:49,SOL,104.67,49.0,-5.0,🔴 VENDER,-2.22,📉 QUEDA,-1,RSI 49 neutro | SMA9<SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro -1 | LSTM -2.2% | MTF BAIXA (2/3) [maior:↓ medio:↓ menor:↑],,-1.0
+2026-10-19 12:00:49,BNB,725.12,53.1,-4.0,🔴 VENDER,-0.84,📉 QUEDA,-1,RSI 53 neutro | SMA9<SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro -1 | MTF BAIXA (2/3) [maior:↓ medio:↓ menor:↑],,-1.0
+2026-10-19 12:00:49,ADA,0.218,42.3,-4.0,🔴 VENDER,0.14,📈 ALTA,-1,RSI 42 baixo (atenuado) | SMA9<SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro -1 | MTF BAIXA (2/3) [maior:↓ medio:↓ menor:↑],,-1.0
