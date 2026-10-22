@@ -44,5 +44,5 @@ ID,Ativo,Tipo,Data_Compra,Preco_Compra,Qtd,Data_Venda,Preco_Venda,Lucro_R$,Lucro
 43,BBAS3,Ação,2026-10-07 13:37,24.67,1.0,,,,,ABERTO,27.72,,1.0,23.14,23.14,equilibrado,
 44,ABEV3,Ação,2026-10-09 13:11,16.15,1.0,,,,,ABERTO,17.27,,1.0,15.59,16.21,equilibrado,
 45,BTC,Cripto,2026-10-14 10:29,83276.53,1.0,2026-10-14 17:43,81693.609375,-1582.92,-1.9,FECHADO,87244.95,,0.0,80630.92,80630.92,equilibrado,🔴 Reversão técnica
-46,PRIO3,Ação,2026-10-21 13:33,70.56,1.0,,,,,ABERTO,77.21,,1.0,67.24,67.24,equilibrado,
+46,PRIO3,Ação,2026-10-21 13:33,70.56,1.0,,,,,ABERTO,77.21,,1.0,67.24,69.41,equilibrado,
 47,PETR4,Ação,2026-10-21 18:51,58.0,1.0,,,,,ABERTO,63.46,,1.0,55.27,55.27,equilibrado,
