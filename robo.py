@@ -1,7 +1,7 @@
 # ==========================================
-# ROBÔ TRADER — GitHub Actions (v10)
-# Cripto 4h + MTF + Macro + LSTM + Trailing ATR
-# Bloqueio inteligente + Score adaptativo + Comandos Telegram
+# ROBÔ TRADER — GitHub Actions (v11)
+# Foco: Swing Trade em BTC/ETH + Ações
+# Filtros: Volume, SMA200, Correlação BTC->ETH
 # ==========================================
 import os
 import time
@@ -43,8 +43,8 @@ _tg_ok = bool(TELEGRAM_TOKEN and TELEGRAM_CHAT_ID)
 # --- Modo de execução ---
 TREINAR_LSTM = os.environ.get("TREINAR_LSTM", "false").lower() == "true"
 
-# --- Watchlists ---
-CRIPTO_WATCHLIST = ["BTC", "ETH", "SOL", "BNB", "ADA"]
+# --- Watchlists (v11: Apenas BTC e ETH) ---
+CRIPTO_WATCHLIST = ["BTC", "ETH"]
 ACOES_WATCHLIST = {
     "PETR4":  "PETR4.SA",
     "VALE3":  "VALE3.SA",
@@ -61,9 +61,6 @@ ACOES_WATCHLIST = {
 CRIPTO_YF = {
     "BTC": "BTC-USD",
     "ETH": "ETH-USD",
-    "SOL": "SOL-USD",
-    "BNB": "BNB-USD",
-    "ADA": "ADA-USD",
 }
 
 MACRO_TICKERS = {
@@ -75,9 +72,9 @@ MACRO_TICKERS = {
 }
 
 # ==========================================
-# BLOQUEIO INTELIGENTE
+# BLOQUEIO INTELIGENTE (v11: desativado para cripto por enquanto)
 # ==========================================
-ATIVOS_BLOQUEADOS = ["SOL", "ETH", "BNB", "ADA"]
+ATIVOS_BLOQUEADOS = []
 BLOQUEIO_OVERRIDE_SCORE_MIN  = 7
 BLOQUEIO_OVERRIDE_LSTM_MIN   = 3.0
 BLOQUEIO_OVERRIDE_MTF        = 2
@@ -85,10 +82,10 @@ BLOQUEIO_OVERRIDE_RSI_MIN    = 40
 BLOQUEIO_OVERRIDE_RSI_MAX    = 60
 
 # ==========================================
-# SCORE MÍNIMO ADAPTATIVO
+# SCORE MÍNIMO ADAPTATIVO (v11: Cripto exige 6)
 # ==========================================
 SCORE_MIN_ACAO   = 4
-SCORE_MIN_CRIPTO = 5
+SCORE_MIN_CRIPTO = 6
 
 # ==========================================
 # LSTM OBRIGATÓRIO PARA CRIPTO
@@ -113,7 +110,7 @@ VAR_JANELA_DIAS   = 30
 CORR_LIMITE       = 0.70
 CORR_JANELA_DIAS  = 60
 
-# --- Perfis ---
+# --- Perfis (v11: ATR maior para cripto) ---
 PERFIS = {
     "conservador": {
         "distancia_trailing": 3.0,
@@ -122,7 +119,7 @@ PERFIS = {
         "mult_stop":          1.0,
         "alvo_parcial":       False,
         "trailing_atr_mult_acao":   1.0,
-        "trailing_atr_mult_cripto": 2.0,
+        "trailing_atr_mult_cripto": 2.5,
         "trailing_min_pct":         0.015,
         "trailing_max_pct":         0.035,
     },
@@ -133,7 +130,7 @@ PERFIS = {
         "mult_stop":          1.5,
         "alvo_parcial":       False,
         "trailing_atr_mult_acao":   1.5,
-        "trailing_atr_mult_cripto": 2.5,
+        "trailing_atr_mult_cripto": 3.0,  # Aumentado de 2.5 para 3.0
         "trailing_min_pct":         0.015,
         "trailing_max_pct":         0.040,
     },
@@ -144,7 +141,7 @@ PERFIS = {
         "mult_stop":          2.0,
         "alvo_parcial":       True,
         "trailing_atr_mult_acao":   2.0,
-        "trailing_atr_mult_cripto": 3.0,
+        "trailing_atr_mult_cripto": 4.0,
         "trailing_min_pct":         0.020,
         "trailing_max_pct":         0.060,
     },
@@ -414,7 +411,6 @@ def salvar_analise(tabela):
         df_final = df_novo
     df_final.to_csv(ARQUIVO_LOG, index=False)
 
-
 # ==========================================
 # COOLDOWN
 # ==========================================
@@ -456,7 +452,6 @@ def em_cooldown(ativo):
     if pd.isna(ate):
         return False
     return datetime.now() < ate
-
 
 # ==========================================
 # CIRCUIT BREAKER
@@ -545,7 +540,6 @@ def verificar_circuit_breaker():
     else:
         return estado, 0, 1.0, False
 
-
 # ==========================================
 # STOPS PENDENTES
 # ==========================================
@@ -583,7 +577,6 @@ def remover_stop_pendente(ativo):
     df = _carregar_stops_pendentes()
     df = df[df["Ativo"] != ativo]
     _salvar_stops_pendentes(df)
-
 
 # ==========================================
 # REVERSÕES PENDENTES
@@ -662,7 +655,8 @@ def _baixar_yahoo(ticker, periodo="6mo", intervalo="1d"):
         return None
 
 
-def buscar_cripto(moeda="BTC", periodo="1mo", intervalo="4h"):
+def buscar_cripto(moeda="BTC", periodo="2mo", intervalo="4h"):
+    # Mantendo 4h conforme combinado, mas com ATR ajustado
     ticker = CRIPTO_YF.get(moeda.upper())
     if not ticker:
         return None
@@ -827,7 +821,7 @@ def calcular_contexto_macro(macro_dfs):
 
 
 # ==========================================
-# INDICADORES
+# INDICADORES (v11: Adicionado SMA_200 e Volume)
 # ==========================================
 def calcular_indicadores(df, coluna_preco="close"):
     d = df.copy()
@@ -836,8 +830,14 @@ def calcular_indicadores(df, coluna_preco="close"):
     d["SMA_9"]  = preco.rolling(9).mean()
     d["SMA_21"] = preco.rolling(21).mean()
     d["SMA_50"] = preco.rolling(50).mean()
+    d["SMA_200"] = preco.rolling(200).mean() # NOVO v11
     d["SMA_50_slope"] = d["SMA_50"].diff(5)
     d["EMA_9"]  = preco.ewm(span=9, adjust=False).mean()
+
+    if "volume" in d.columns:
+        d["Vol_Media_20"] = d["volume"].rolling(20).mean()
+    else:
+        d["Vol_Media_20"] = 0
 
     delta = preco.diff()
     ganho = delta.clip(lower=0).rolling(14).mean()
@@ -972,8 +972,9 @@ def calcular_alvo_stop(df, perfil="equilibrado", tipo="Ação"):
     casas = _precisao(preco)
 
     if tipo == "Cripto":
-        mult_alvo = cfg["mult_alvo"] * 1.5
-        mult_stop = cfg["mult_stop"] * 2.0
+        # v11: Multiplicadores maiores
+        mult_alvo = cfg["mult_alvo"] * 2.0   # 6.0
+        mult_stop = cfg["mult_stop"] * 2.33  # 3.5
     else:
         mult_alvo = cfg["mult_alvo"]
         mult_stop = cfg["mult_stop"]
@@ -1419,7 +1420,7 @@ def _cmd_status():
         f"⏸️ Pausado manualmente: {pausado}\n"
         f"💼 Posições abertas: {abertas}\n"
         f"📁 Fechadas: {fechadas}\n"
-        f"🔒 Bloqueados: {', '.join(ATIVOS_BLOQUEADOS)}"
+        f"🔒 Bloqueados: {', '.join(ATIVOS_BLOQUEADOS) if ATIVOS_BLOQUEADOS else 'Nenhum'}"
     )
 
 
@@ -1812,7 +1813,7 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
             continue
 
         # ==========================================
-        # BLOQUEIO INTELIGENTE (com override excepcional)
+        # BLOQUEIO INTELIGENTE
         # ==========================================
         if _ativo_bloqueado(ativo):
             score_atual = row.get("Score") or 0
@@ -1825,10 +1826,9 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
                 mtf_atual == BLOQUEIO_OVERRIDE_MTF and
                 rsi_atual is not None and
                 BLOQUEIO_OVERRIDE_RSI_MIN <= rsi_atual <= BLOQUEIO_OVERRIDE_RSI_MAX):
-                print(f"   🚀 {ativo} LIBERADO por sinal excepcional "
-                      f"(score {score_atual}, LSTM {lstm_atual:+.2f}%, MTF {mtf_atual}, RSI {rsi_atual:.0f})")
+                print(f"   🚀 {ativo} LIBERADO por sinal excepcional")
             else:
-                print(f"   🔒 {ativo} bloqueado (histórico ruim — aguardando sinal excepcional)")
+                print(f"   🔒 {ativo} bloqueado (histórico ruim)")
                 continue
 
         # ==========================================
@@ -1841,7 +1841,7 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
 
         score_ativo = row.get("Score")
         if score_ativo is not None and score_ativo < score_minimo:
-            print(f"   ⚠️ {ativo} score {score_ativo} < mínimo {score_minimo} (CB {estado_cb}, {tipo})")
+            print(f"   ⚠️ {ativo} score {score_ativo} < mínimo {score_minimo}")
             continue
 
         # ==========================================
@@ -1850,7 +1850,7 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
         if tipo == "Cripto":
             lstm_val = row.get("LSTM_variacao")
             if lstm_val is None or lstm_val <= LSTM_MIN_CRIPTO:
-                print(f"   🧠 {ativo} bloqueado: LSTM {lstm_val} (precisa > {LSTM_MIN_CRIPTO} para cripto)")
+                print(f"   🧠 {ativo} bloqueado: LSTM {lstm_val} (precisa > {LSTM_MIN_CRIPTO})")
                 continue
 
         if em_cooldown(ativo):
@@ -1858,8 +1858,7 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
             continue
 
         portfolio = carregar_portfolio()
-        if not portfolio[(portfolio["Ativo"] == ativo) &
-                          (portfolio["Status"] == "ABERTO")].empty:
+        if not portfolio[(portfolio["Ativo"] == ativo) & (portfolio["Status"] == "ABERTO")].empty:
             continue
 
         if len(portfolio[portfolio["Status"] == "ABERTO"]) >= MAX_POSICOES:
@@ -1869,6 +1868,34 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
         df = dfs.get(ativo)
         if df is None or df.empty:
             continue
+            
+        # --- FILTROS EXCLUSIVOS DE CRIPTO (v11) ---
+        d_ind = calcular_indicadores(df, coluna_preco="close")
+        ultima = d_ind.iloc[-1]
+
+        if tipo == "Cripto":
+            # Filtro SMA200 (com exceção RSI < 25)
+            if pd.notna(ultima["SMA_200"]) and ultima["close"] < ultima["SMA_200"]:
+                if pd.isna(ultima["RSI"]) or ultima["RSI"] >= 25:
+                    print(f"   📉 {ativo} abaixo da SMA200 (RSI {ultima['RSI']:.1f}) — bloqueado")
+                    continue
+            
+            # Filtro de Volume
+            if pd.notna(ultima["Vol_Media_20"]) and ultima["Vol_Media_20"] > 0:
+                if ultima["volume"] < ultima["Vol_Media_20"]:
+                    print(f"   📊 {ativo} volume ({ultima['volume']:.0f}) abaixo da média ({ultima['Vol_Media_20']:.0f}) — bloqueado")
+                    continue
+            
+            # Filtro Correlação BTC -> ETH
+            if ativo == "ETH":
+                df_btc = dfs.get("BTC")
+                if df_btc is not None and not df_btc.empty:
+                    d_btc = calcular_indicadores(df_btc, coluna_preco="close")
+                    ult_btc = d_btc.iloc[-1]
+                    if pd.notna(ult_btc["SMA_50"]) and pd.notna(ult_btc["SMA_50_slope"]):
+                        if ult_btc["close"] < ult_btc["SMA_50"] and ult_btc["SMA_50_slope"] < 0:
+                            print(f"   🔗 ETH bloqueado: BTC em tendência de baixa forte")
+                            continue
 
         preco, alvo, stop, atr = calcular_alvo_stop(df, perfil=perfil, tipo=tipo)
         casas = _precisao(preco)
@@ -1884,16 +1911,13 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
         var_novo = calcular_var_posicao(df, valor_trade)
         pode, var_atual, var_lim = var_permite_abrir(var_novo, dfs)
         if not pode:
-            print(f"   🛡️ {ativo} bloqueado por VaR "
-                  f"(atual R$ {var_atual:.2f} + novo R$ {var_novo:.2f} > limite R$ {var_lim:.2f})")
+            print(f"   🛡️ {ativo} bloqueado por VaR")
             continue
 
-        # Correlação
+        # Correlação Geral
         port_atual = carregar_portfolio()
         abertas_atual = port_atual[port_atual["Status"] == "ABERTO"]
-        bloqueado, motivo, ativo_corr, corr_val = ativo_muito_correlacionado(
-            ativo, df, abertas_atual, dfs
-        )
+        bloqueado, motivo, _, _ = ativo_muito_correlacionado(ativo, df, abertas_atual, dfs)
         if bloqueado:
             print(f"   🔗 {ativo} bloqueado: {motivo}")
             continue
@@ -1901,7 +1925,7 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
         qtd = 1
         print(f"   🟢 ABRINDO {ativo} @ {preco:.{casas}f} | "
               f"Alvo {alvo:.{casas}f} | Stop {stop:.{casas}f} | "
-              f"💡 Sugestão Kelly: R$ {valor_trade:.2f} | {perfil}")
+              f"💡 Kelly: R$ {valor_trade:.2f} | {perfil}")
         registrar_compra(ativo, tipo, round(preco, casas), qtd,
                          round(alvo, casas), round(stop, casas), perfil=perfil)
 
@@ -2024,18 +2048,18 @@ def main():
 
 
 def _main_interno():
-    # v10: processa comandos do Telegram antes de tudo
+    # Processa comandos do Telegram antes de tudo
     processar_comandos_telegram()
 
     print("=" * 75)
-    print("🤖 ROBÔ TRADER — CICLO GITHUB ACTIONS (v10)")
+    print("🤖 ROBÔ TRADER — CICLO GITHUB ACTIONS (v11)")
     print(f"📅 {datetime.now().strftime('%d/%m/%Y %H:%M')}")
     print(f"⚙️ Perfil: {PERFIL_ATIVO}")
     print(f"🧠 LSTM: {'TREINAR + USAR' if TREINAR_LSTM else 'USAR SALVO (ou pular)'}")
     print(f"🎯 Trailing: ATR × ação/cripto")
-    print(f"🔒 Ativos bloqueados: {', '.join(ATIVOS_BLOQUEADOS)}")
+    print(f"🔒 Ativos bloqueados: {', '.join(ATIVOS_BLOQUEADOS) if ATIVOS_BLOQUEADOS else 'Nenhum'}")
     print(f"📊 Score mín: Ação {SCORE_MIN_ACAO} | Cripto {SCORE_MIN_CRIPTO}")
-    print(f"📱 Comandos Telegram: /help /ping /status /portfolio /sinais /bloqueados /pausar /retomar")
+    print(f"🪙 Criptos na Watchlist: {', '.join(CRIPTO_WATCHLIST)}")
 
     estado_cb, _, _, _ = verificar_circuit_breaker()
     print(f"🔌 Circuit breaker: {estado_cb.upper()}")
