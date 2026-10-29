@@ -9560,3 +9560,5 @@ DataHora,Ativo,Preco,RSI,Score,Veredito,LSTM_variacao,LSTM_tendencia,Macro_Score
 2026-10-29 05:10:31,ETH,2325.28,53.6,-2.0,🟡 AGUARDAR,2.04,📈 ALTA,-2,RSI 54 neutro | SMA9>SMA21 | Abaixo SMA50 | MACD+ | Penalidade tendência | Macro -2 | LSTM +2.0% | MTF BAIXA (2/3) [maior:↓ medio:↑ menor:↓],,-1.0
 2026-10-29 09:39:27,BTC,80019.82,53.2,-5.0,🔴 VENDER,0.8,📈 ALTA,-2,RSI 53 neutro | SMA9>SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro -2 | MTF BAIXA (2/3) [maior:↓ medio:↑ menor:↓],,-1.0
 2026-10-29 09:39:27,ETH,2315.66,51.3,-4.0,🔴 VENDER,2.31,📈 ALTA,-2,RSI 51 neutro | SMA9>SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro -2 | LSTM +2.3% | MTF BAIXA (2/3) [maior:↓ medio:↑ menor:↓],,-1.0
+2026-10-29 11:59:19,BTC,80065.3,53.6,-5.0,🔴 VENDER,0.75,📈 ALTA,-2,RSI 54 neutro | SMA9>SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro -2 | MTF BAIXA (2/3) [maior:↓ medio:↑ menor:↓],,-1.0
+2026-10-29 11:59:19,ETH,2322.64,53.1,-5.0,🔴 VENDER,1.76,📈 ALTA,-2,RSI 53 neutro | SMA9>SMA21 | Abaixo SMA50 | MACD- | Penalidade tendência | Macro -2 | MTF BAIXA (2/3) [maior:↓ medio:↑ menor:↓],,-1.0
