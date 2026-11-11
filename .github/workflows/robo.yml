@@ -1,4 +1,4 @@
-name: Robo Trader
+name: Robo Trader (v12 em desenvolvimento)
 
 on:
   schedule:
@@ -28,6 +28,15 @@ on:
 
 permissions:
   contents: write
+
+# Evita duas execucoes alterando a mesma branch ao mesmo tempo.
+concurrency:
+  group: robo-trader-${{ github.ref }}
+  cancel-in-progress: false
+
+concurrency:
+  group: robo-trader-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   robo:
@@ -88,9 +97,31 @@ jobs:
           key: lstm-models-${{ github.run_number }}
 
       - name: Salvar dados atualizados
+        shell: bash
         run: |
+          set -e
           git config user.name "robo-trader-bot"
           git config user.email "bot@robo-trader.local"
-          git add portfolio.csv historico_sinais.csv cooldowns.csv circuit_breaker.json stops_pendentes.csv reversoes_pendentes.csv telegram_state.json 2>/dev/null || true
-          git commit -m "🤖 Atualiza dados [skip ci]" || echo "Sem mudanças para commitar"
-          git push
+
+          # Adiciona somente os arquivos da carteira virtual v12 existentes.
+          # Modelos LSTM ficam fora do commit; o cache cuida deles.
+          for arquivo in \
+            portfolio_v12.csv \
+            historico_sinais_v12.csv \
+            cooldowns_v12.csv \
+            circuit_breaker_v12.json \
+            stops_pendentes_v12.csv \
+            reversoes_pendentes_v12.csv \
+            telegram_state_v12.json; do
+            if [ -f "$arquivo" ]; then
+              git add -- "$arquivo"
+            fi
+          done
+
+          if git diff --cached --quiet; then
+            echo "Nenhuma alteracao de dados da v12 para salvar."
+            exit 0
+          fi
+
+          git commit -m "Atualiza simulacao v12 [skip ci]"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
