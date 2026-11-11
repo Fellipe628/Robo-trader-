@@ -1,5 +1,5 @@
 # ==========================================
-# ROBÔ TRADER — GitHub Actions (v11)
+# ROBÔ TRADER — GitHub Actions (v12 - SIMULAÇÃO)
 # Foco: Swing Trade em BTC/ETH + Ações
 # Filtros: Volume, SMA200, Correlação BTC->ETH
 # ==========================================
@@ -12,14 +12,14 @@ from datetime import datetime, timezone, timedelta
 
 # --- Configurações gerais ---
 PASTA         = "."
-PASTA_MODELOS = f"{PASTA}/modelos_lstm"
-ARQUIVO       = f"{PASTA}/portfolio.csv"
-ARQUIVO_LOG   = f"{PASTA}/historico_sinais.csv"
-ARQUIVO_COOLDOWN = f"{PASTA}/cooldowns.csv"
-ARQUIVO_CIRCUIT = f"{PASTA}/circuit_breaker.json"
-ARQUIVO_STOPS_PEND = f"{PASTA}/stops_pendentes.csv"
-ARQUIVO_REVERSOES_PEND = f"{PASTA}/reversoes_pendentes.csv"
-ARQUIVO_TG_STATE = f"{PASTA}/telegram_state.json"
+PASTA_MODELOS = f"{PASTA}/modelos_lstm_v12"
+ARQUIVO       = f"{PASTA}/portfolio_v12.csv"
+ARQUIVO_LOG   = f"{PASTA}/historico_sinais_v12.csv"
+ARQUIVO_COOLDOWN = f"{PASTA}/cooldowns_v12.csv"
+ARQUIVO_CIRCUIT = f"{PASTA}/circuit_breaker_v12.json"
+ARQUIVO_STOPS_PEND = f"{PASTA}/stops_pendentes_v12.csv"
+ARQUIVO_REVERSOES_PEND = f"{PASTA}/reversoes_pendentes_v12.csv"
+ARQUIVO_TG_STATE = f"{PASTA}/telegram_state_v12.json"
 COOLDOWN_HORAS   = 6
 
 # --- Circuit Breaker ---
@@ -93,13 +93,19 @@ SCORE_MIN_CRIPTO = 6
 LSTM_MIN_CRIPTO = 0.0
 
 # --- Parâmetros de trading ---
-VALOR_POR_TRADE = 1000
-KELLY_CAPITAL   = 10000
+# Simulação isolada: os dados antigos não são misturados aos novos.
+CAPITAL_INICIAL = 500.0
+VALOR_POR_TRADE = 50.0
+KELLY_CAPITAL   = CAPITAL_INICIAL
 KELLY_FRACTION  = 0.25
 KELLY_MIN_PROB  = 0.50
-KELLY_MIN_VALOR = 500
-KELLY_MAX_VALOR = 1500
-MAX_POSICOES    = 7
+KELLY_MIN_VALOR = 10.0
+KELLY_MAX_VALOR = 50.0
+MAX_POSICOES    = 3
+RISCO_MAXIMO_POR_OPERACAO_PCT = 0.01
+# Não usar probabilidades Kelly inventadas a partir do score.
+# LSTM antigo não é carregado; os modelos v12 precisam ser treinados novamente.
+
 
 # --- VaR ---
 VAR_CONFIANCA     = 0.95
@@ -176,6 +182,31 @@ def _precisao(preco):
         return 3
     else:
         return 4
+
+
+def _cotacao_usdbrl():
+    """Cotação de referência para transformar preços BTC/ETH USD em BRL."""
+    df = _baixar_yahoo("USDBRL=X", periodo="5d", intervalo="1d")
+    if df is None or df.empty:
+        return None
+    valor = float(df["close"].iloc[-1])
+    return valor if np.isfinite(valor) and valor > 0 else None
+
+
+def _capital_comprometido():
+    df = carregar_portfolio()
+    abertas = df[df["Status"] == "ABERTO"]
+    if abertas.empty:
+        return 0.0
+    return sum(float(p["Preco_Compra"]) * float(p["Qtd_Restante"])
+               for _, p in abertas.iterrows())
+
+
+def _saldo_disponivel():
+    df = carregar_portfolio()
+    fechadas = df[df["Status"] == "FECHADO"]
+    resultado = pd.to_numeric(fechadas["Lucro_R$"], errors="coerce").fillna(0).sum()
+    return max(0.0, CAPITAL_INICIAL + float(resultado) - _capital_comprometido())
 
 
 def _agora_brt():
@@ -660,7 +691,19 @@ def buscar_cripto(moeda="BTC", periodo="2mo", intervalo="4h"):
     ticker = CRIPTO_YF.get(moeda.upper())
     if not ticker:
         return None
-    return _baixar_yahoo(ticker, periodo, intervalo)
+    df = _baixar_yahoo(ticker, periodo, intervalo)
+    if df is None or df.empty:
+        return None
+    # A cotação de referência é aproximada, não preço negociável intrabar.
+    # Todos os campos OHLC passam a usar reais, inclusive ATR/stops.
+    fx = _cotacao_usdbrl()
+    if fx is None:
+        print(f"⚠️ Sem USD/BRL para {moeda}; cripto não será operada.")
+        return None
+    df = df.copy()
+    for coluna in ("open", "high", "low", "close"):
+        df[coluna] = df[coluna] * fx
+    return df
 
 
 def buscar_acao(ticker="PETR4.SA", periodo="2y", intervalo="1d"):
@@ -1010,7 +1053,10 @@ if _lstm_disponivel:
 def _preparar_dados_lstm(df, janela=JANELA):
     serie = df["close"].values.reshape(-1, 1)
     scaler = MinMaxScaler(feature_range=(0, 1))
-    serie_norm = scaler.fit_transform(serie)
+    # Ajuste do scaler SOMENTE nos dados de treinamento.
+    corte_serie = max(janela + 1, int(len(serie) * PROPORCAO_TREINO))
+    scaler.fit(serie[:corte_serie])
+    serie_norm = scaler.transform(serie)
 
     X, y = [], []
     for i in range(janela, len(serie_norm)):
@@ -1082,20 +1128,20 @@ def prever_proximo_preco(ativo, df, modelo=None, scaler=None):
     if modelo is None or scaler is None:
         return None
 
-    X, _, _ = _preparar_dados_lstm(df)
-    if len(X) == 0:
+    # Para prever a próxima vela, usar as últimas JANELA velas.
+    # Nunca ajustar outro scaler durante a inferência.
+    if len(df) < JANELA:
         return None
-
-    prev_norm = modelo.predict(X[-1].reshape(1, JANELA, 1), verbose=0)[0][0]
+    ultimos = df["close"].to_numpy(dtype=float)[-JANELA:].reshape(-1, 1)
+    entrada = scaler.transform(ultimos).reshape(1, JANELA, 1)
+    prev_norm = modelo.predict(entrada, verbose=0)[0][0]
     previsao = scaler.inverse_transform([[prev_norm]])[0][0]
 
     preco_atual = float(df["close"].iloc[-1])
     variacao_pct = (previsao / preco_atual - 1) * 100
 
-    if abs(variacao_pct) < 0.5:   confianca = "Baixa"
-    elif abs(variacao_pct) < 2:   confianca = "Média"
-    elif abs(variacao_pct) < 5:   confianca = "Alta"
-    else:                          confianca = "Muito Alta"
+    # A amplitude prevista NÃO é uma medida estatística de confiança.
+    confianca = "Não calibrada"
 
     return {
         "preco_atual":  preco_atual,
@@ -1756,27 +1802,14 @@ def var_permite_abrir(novo_var, dfs):
 
 
 def calcular_kelly(score, preco_entrada, alvo, stop):
-    if score >= 7:      prob = 0.70
-    elif score == 6:    prob = 0.65
-    elif score == 5:    prob = 0.60
-    elif score == 4:    prob = 0.55
-    elif score == 3:    prob = 0.52
-    else:               prob = 0.50
-
-    risco = preco_entrada - stop
-    retorno = alvo - preco_entrada
-    if risco <= 0 or retorno <= 0:
-        return KELLY_MIN_VALOR
-    payoff = retorno / risco
-
-    q = 1 - prob
-    f_kelly = (prob * payoff - q) / payoff
-    if f_kelly <= 0 or prob < KELLY_MIN_PROB:
-        return 0
-
-    valor = KELLY_CAPITAL * f_kelly * KELLY_FRACTION
-    valor = max(KELLY_MIN_VALOR, min(KELLY_MAX_VALOR, valor))
-    return round(valor, 2)
+    """Teto de alocação conservador; não aplica Kelly sem probabilidades calibradas."""
+    if preco_entrada <= 0 or stop <= 0 or stop >= preco_entrada:
+        return 0.0
+    risco_pct = (preco_entrada - stop) / preco_entrada
+    if risco_pct <= 0:
+        return 0.0
+    teto_risco = CAPITAL_INICIAL * RISCO_MAXIMO_POR_OPERACAO_PCT / risco_pct
+    return round(max(0.0, min(VALOR_POR_TRADE, teto_risco, KELLY_MAX_VALOR)), 2)
 
 
 def abrir_novas_posicoes(tabela, dfs, perfil=None):
@@ -1905,7 +1938,21 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
         if valor_kelly <= 0:
             print(f"   ⚠️ {ativo} Kelly negativo — pulando.")
             continue
-        valor_trade = valor_kelly * tamanho_pct
+        valor_trade = min(valor_kelly * tamanho_pct, _saldo_disponivel())
+        if valor_trade < KELLY_MIN_VALOR:
+            print(f"   💰 Saldo insuficiente para {ativo}: R$ {valor_trade:.2f}")
+            continue
+        # Quantidade fracionária somente para criptomoedas.
+        if tipo == "Cripto":
+            qtd = round(valor_trade / preco, 8)
+        else:
+            qtd = int(valor_trade // preco)
+        if qtd <= 0:
+            print(f"   💰 Não é possível comprar 1 unidade de {ativo} com R$ {valor_trade:.2f}")
+            continue
+        valor_trade = qtd * preco
+        if valor_trade > _saldo_disponivel() + 1e-8:
+            continue
 
         # VaR
         var_novo = calcular_var_posicao(df, valor_trade)
@@ -1922,7 +1969,6 @@ def abrir_novas_posicoes(tabela, dfs, perfil=None):
             print(f"   🔗 {ativo} bloqueado: {motivo}")
             continue
 
-        qtd = 1
         print(f"   🟢 ABRINDO {ativo} @ {preco:.{casas}f} | "
               f"Alvo {alvo:.{casas}f} | Stop {stop:.{casas}f} | "
               f"💡 Kelly: R$ {valor_trade:.2f} | {perfil}")
@@ -2052,7 +2098,7 @@ def _main_interno():
     processar_comandos_telegram()
 
     print("=" * 75)
-    print("🤖 ROBÔ TRADER — CICLO GITHUB ACTIONS (v11)")
+    print("🤖 ROBÔ TRADER — CICLO GITHUB ACTIONS (v12 - SIMULAÇÃO)")
     print(f"📅 {datetime.now().strftime('%d/%m/%Y %H:%M')}")
     print(f"⚙️ Perfil: {PERFIL_ATIVO}")
     print(f"🧠 LSTM: {'TREINAR + USAR' if TREINAR_LSTM else 'USAR SALVO (ou pular)'}")
