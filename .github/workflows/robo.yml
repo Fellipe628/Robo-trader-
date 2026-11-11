@@ -1,4 +1,4 @@
-name: Robo Trader
+name: Robo Trader (v12 em desenvolvimento)
 
 on:
   schedule:
@@ -28,6 +28,10 @@ on:
 
 permissions:
   contents: write
+
+concurrency:
+  group: robo-trader-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   robo:
@@ -91,6 +95,7 @@ jobs:
         run: |
           git config user.name "robo-trader-bot"
           git config user.email "bot@robo-trader.local"
-          git add portfolio.csv historico_sinais.csv cooldowns.csv circuit_breaker.json stops_pendentes.csv reversoes_pendentes.csv telegram_state.json 2>/dev/null || true
+          git add portfolio_v12.csv historico_sinais_v12.csv cooldowns_v12.csv circuit_breaker_v12.json stops_pendentes_v12.csv reversoes_pendentes_v12.csv telegram_state_v12.json 2>/dev/null || true
           git commit -m "🤖 Atualiza dados [skip ci]" || echo "Sem mudanças para commitar"
-          git push
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin HEAD:"${GITHUB_REF_NAME}"
