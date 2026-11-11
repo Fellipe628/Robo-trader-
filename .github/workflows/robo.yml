@@ -2,13 +2,9 @@ name: Robo Trader (v12 em desenvolvimento)
 
 on:
   schedule:
-    # ⭐ Treino de CRIPTO (3h BRT, todos os dias — madrugada)
     - cron: '0 6 * * *'
-    # ⭐ Treino de AÇÕES + CRIPTO (10h BRT, seg-sex, mercado aberto)
     - cron: '0 13 * * 1-5'
-    # ⭐ Relatório semanal (sábado, 09h BRT = 12h UTC)
     - cron: '0 12 * * 6'
-    # Ciclos normais do dia (modo uso)
     - cron: '0 3 * * *'
     - cron: '0 9,10 * * *'
     - cron: '0,30 11,12 * * *'
@@ -59,21 +55,19 @@ jobs:
 
       - name: Definir modo (treino / relatório / uso)
         id: modo
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
+          INPUT_TREINO: ${{ inputs.treinar_lstm }}
         run: |
-          SCHEDULE="${{ github.event.schedule }}"
-          INPUT="${{ github.event.inputs.treinar_lstm }}"
           if [ "$SCHEDULE" = "0 12 * * 6" ]; then
-            echo "treinar=false" >> $GITHUB_OUTPUT
-            echo "relatorio=true" >> $GITHUB_OUTPUT
-            echo "📊 Modo RELATÓRIO SEMANAL ativado"
-          elif [ "$SCHEDULE" = "0 6 * * *" ] || [ "$SCHEDULE" = "0 13 * * 1-5" ] || [ "$INPUT" = "true" ]; then
-            echo "treinar=true" >> $GITHUB_OUTPUT
-            echo "relatorio=false" >> $GITHUB_OUTPUT
-            echo "🧠 Modo TREINO ativado (schedule: $SCHEDULE)"
+            echo "treinar=false" >> "$GITHUB_OUTPUT"
+            echo "relatorio=true" >> "$GITHUB_OUTPUT"
+          elif [ "$SCHEDULE" = "0 6 * * *" ] || [ "$SCHEDULE" = "0 13 * * 1-5" ] || [ "$INPUT_TREINO" = "true" ]; then
+            echo "treinar=true" >> "$GITHUB_OUTPUT"
+            echo "relatorio=false" >> "$GITHUB_OUTPUT"
           else
-            echo "treinar=false" >> $GITHUB_OUTPUT
-            echo "relatorio=false" >> $GITHUB_OUTPUT
-            echo "📦 Modo USO (carrega modelo do cache)"
+            echo "treinar=false" >> "$GITHUB_OUTPUT"
+            echo "relatorio=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Rodar robô
@@ -92,10 +86,30 @@ jobs:
           key: lstm-models-${{ github.run_number }}
 
       - name: Salvar dados atualizados
+        if: success()
+        shell: bash
         run: |
+          set -e
           git config user.name "robo-trader-bot"
           git config user.email "bot@robo-trader.local"
-          git add portfolio_v12.csv historico_sinais_v12.csv cooldowns_v12.csv circuit_breaker_v12.json stops_pendentes_v12.csv reversoes_pendentes_v12.csv telegram_state_v12.json 2>/dev/null || true
-          git commit -m "🤖 Atualiza dados [skip ci]" || echo "Sem mudanças para commitar"
-          git pull --rebase origin "${GITHUB_REF_NAME}"
-          git push origin HEAD:"${GITHUB_REF_NAME}"
+
+          for arquivo in \
+            portfolio_v12.csv \
+            historico_sinais_v12.csv \
+            cooldowns_v12.csv \
+            circuit_breaker_v12.json \
+            stops_pendentes_v12.csv \
+            reversoes_pendentes_v12.csv \
+            telegram_state_v12.json; do
+            if [ -f "$arquivo" ]; then
+              git add -- "$arquivo"
+            fi
+          done
+
+          if git diff --cached --quiet; then
+            echo "Nenhuma alteração da v12 para salvar."
+            exit 0
+          fi
+
+          git commit -m "Atualiza dados simulados v12 [skip ci]"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
