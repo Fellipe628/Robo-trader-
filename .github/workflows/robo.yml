@@ -105,7 +105,8 @@ jobs:
             circuit_breaker_v12.json \
             stops_pendentes_v12.csv \
             reversoes_pendentes_v12.csv \
-            telegram_state_v12.json; do
+            telegram_state_v12.json \
+            radar_noticias_v12.json; do
             if [ -f "$arquivo" ]; then
               git add -- "$arquivo"
             fi
