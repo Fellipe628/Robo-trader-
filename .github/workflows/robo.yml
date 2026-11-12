@@ -1,38 +1,29 @@
-name: Robo Trader (v12 em desenvolvimento)
+name: Robo Trader v12 (simulacao)
 
 on:
-  schedule:
-    # ⭐ Treino de CRIPTO (3h BRT, todos os dias — madrugada)
-    - cron: '0 6 * * *'
-    # ⭐ Treino de AÇÕES + CRIPTO (10h BRT, seg-sex, mercado aberto)
-    - cron: '0 13 * * 1-5'
-    # ⭐ Relatório semanal (sábado, 09h BRT = 12h UTC)
-    - cron: '0 12 * * 6'
-    # Ciclos normais do dia (modo uso)
-    - cron: '0 3 * * *'
-    - cron: '0 9,10 * * *'
-    - cron: '0,30 11,12 * * *'
-    - cron: '*/15 13-19 * * *'
-    - cron: '0 20-23 * * *'
-    - cron: '0 0-1 * * *'
   workflow_dispatch:
     inputs:
       treinar_lstm:
-        description: 'Forçar treino do LSTM?'
+        description: 'Forcar treino do LSTM?'
         required: false
         default: 'false'
         type: choice
         options:
           - 'false'
           - 'true'
+  schedule:
+    - cron: '0 6 * * *'
+    - cron: '0 13 * * 1-5'
+    - cron: '0 12 * * 6'
+    - cron: '0 3 * * *'
+    - cron: '0 9,10 * * *'
+    - cron: '0,30 11,12 * * *'
+    - cron: '*/15 13-19 * * *'
+    - cron: '0 20-23 * * *'
+    - cron: '0 0-1 * * *'
 
 permissions:
   contents: write
-
-# Evita duas execucoes alterando a mesma branch ao mesmo tempo.
-concurrency:
-  group: robo-trader-${{ github.ref }}
-  cancel-in-progress: false
 
 concurrency:
   group: robo-trader-${{ github.ref }}
@@ -42,7 +33,7 @@ jobs:
   robo:
     runs-on: ubuntu-latest
     steps:
-      - name: Baixar código
+      - name: Baixar codigo
         uses: actions/checkout@v4
 
       - name: Configurar Python
@@ -51,37 +42,36 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
-      - name: Restaurar modelos LSTM (cache)
+      - name: Restaurar modelos LSTM v12
         uses: actions/cache/restore@v4
         with:
-          path: modelos_lstm
-          key: lstm-models-${{ github.run_number }}
+          path: modelos_lstm_v12
+          key: lstm-v12-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            lstm-models-
+            lstm-v12-${{ github.ref_name }}-
 
-      - name: Instalar dependências
+      - name: Instalar dependencias
         run: pip install -r requirements.txt
 
-      - name: Definir modo (treino / relatório / uso)
+      - name: Definir modo
         id: modo
+        shell: bash
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
+          INPUT_TREINO: ${{ inputs.treinar_lstm }}
         run: |
-          SCHEDULE="${{ github.event.schedule }}"
-          INPUT="${{ github.event.inputs.treinar_lstm }}"
           if [ "$SCHEDULE" = "0 12 * * 6" ]; then
-            echo "treinar=false" >> $GITHUB_OUTPUT
-            echo "relatorio=true" >> $GITHUB_OUTPUT
-            echo "📊 Modo RELATÓRIO SEMANAL ativado"
-          elif [ "$SCHEDULE" = "0 6 * * *" ] || [ "$SCHEDULE" = "0 13 * * 1-5" ] || [ "$INPUT" = "true" ]; then
-            echo "treinar=true" >> $GITHUB_OUTPUT
-            echo "relatorio=false" >> $GITHUB_OUTPUT
-            echo "🧠 Modo TREINO ativado (schedule: $SCHEDULE)"
+            echo "treinar=false" >> "$GITHUB_OUTPUT"
+            echo "relatorio=true" >> "$GITHUB_OUTPUT"
+          elif [ "$SCHEDULE" = "0 6 * * *" ] || [ "$SCHEDULE" = "0 13 * * 1-5" ] || [ "$INPUT_TREINO" = "true" ]; then
+            echo "treinar=true" >> "$GITHUB_OUTPUT"
+            echo "relatorio=false" >> "$GITHUB_OUTPUT"
           else
-            echo "treinar=false" >> $GITHUB_OUTPUT
-            echo "relatorio=false" >> $GITHUB_OUTPUT
-            echo "📦 Modo USO (carrega modelo do cache)"
+            echo "treinar=false" >> "$GITHUB_OUTPUT"
+            echo "relatorio=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Rodar robô
+      - name: Rodar robo
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -89,22 +79,20 @@ jobs:
           MODO_RELATORIO: ${{ steps.modo.outputs.relatorio }}
         run: python robo.py
 
-      - name: Salvar modelos LSTM (cache)
-        if: steps.modo.outputs.treinar == 'true'
+      - name: Salvar modelos LSTM v12
+        if: success() && steps.modo.outputs.treinar == 'true'
         uses: actions/cache/save@v4
         with:
-          path: modelos_lstm
-          key: lstm-models-${{ github.run_number }}
+          path: modelos_lstm_v12
+          key: lstm-v12-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
 
-      - name: Salvar dados atualizados
+      - name: Salvar dados simulados
+        if: success()
         shell: bash
         run: |
           set -e
           git config user.name "robo-trader-bot"
           git config user.email "bot@robo-trader.local"
-
-          # Adiciona somente os arquivos da carteira virtual v12 existentes.
-          # Modelos LSTM ficam fora do commit; o cache cuida deles.
           for arquivo in \
             portfolio_v12.csv \
             historico_sinais_v12.csv \
@@ -117,11 +105,9 @@ jobs:
               git add -- "$arquivo"
             fi
           done
-
           if git diff --cached --quiet; then
-            echo "Nenhuma alteracao de dados da v12 para salvar."
+            echo "Nenhuma alteracao para salvar."
             exit 0
           fi
-
-          git commit -m "Atualiza simulacao v12 [skip ci]"
+          git commit -m "Atualiza dados simulados v12 [skip ci]"
           git push origin "HEAD:${GITHUB_REF_NAME}"
