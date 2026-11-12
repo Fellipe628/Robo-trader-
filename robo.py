@@ -1318,6 +1318,22 @@ def enviar_telegram(mensagem, tentativas=3):
     return False
 
 
+def enviar_telegram_texto(mensagem):
+    """Telegram sem parse_mode: títulos de notícias podem conter Markdown."""
+    if not _tg_ok:
+        return False
+    try:
+        resposta = requests.post(
+            f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
+            data={"chat_id": TELEGRAM_CHAT_ID, "text": mensagem}, timeout=10)
+        if resposta.status_code != 200:
+            print(f"📰 Telegram HTTP {resposta.status_code}")
+        return resposta.status_code == 200
+    except requests.RequestException as exc:
+        print(f"📰 Telegram indisponível: {type(exc).__name__}")
+        return False
+
+
 def alerta_compra(ativo, preco, alvo, stop, veredito, lstm_pct, lstm_tend, perfil, estado_cb="normal", valor_trade=None):
     lstm_str = f"{lstm_pct:+.2f}% {lstm_tend}" if lstm_pct is not None else "n/a"
     casas = _precisao(preco)
@@ -2094,6 +2110,13 @@ def main():
 
 
 def _main_interno():
+    # Radar contextual separado: falhas não interrompem os sinais.
+    try:
+        from radar_noticias import executar_radar
+        executar_radar(enviar=lambda msg, markdown=False: enviar_telegram_texto(msg))
+    except Exception as exc:
+        print(f"📰 Radar indisponível: {type(exc).__name__}: {exc}")
+
     # Processa comandos do Telegram antes de tudo
     processar_comandos_telegram()
 
