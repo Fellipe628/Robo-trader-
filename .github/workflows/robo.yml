@@ -1,67 +1,3 @@
-name: Robo Trader (v12 em desenvolvimento)
-
-on:
-  schedule:
-    - cron: '0 6 * * *'
-    - cron: '0 13 * * 1-5'
-    - cron: '0 12 * * 6'
-    - cron: '0 3 * * *'
-    - cron: '0 9,10 * * *'
-    - cron: '0,30 11,12 * * *'
-    - cron: '*/15 13-19 * * *'
-    - cron: '0 20-23 * * *'
-    - cron: '0 0-1 * * *'
-  workflow_dispatch:
-    inputs:
-      treinar_lstm:
-        description: 'Forçar treino do LSTM?'
-        required: false
-        default: 'false'
-        type: choice
-        options:
-          - 'false'
-          - 'true'
-
-permissions:
-  contents: write
-
-concurrency:
-  group: robo-trader-${{ github.ref }}
-  cancel-in-progress: false
-
-jobs:
-  robo:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Baixar código
-        uses: actions/checkout@v4
-
-      - name: Configurar Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-
-      - name: Restaurar modelos LSTM (cache)
-        uses: actions/cache/restore@v4
-        with:
-          path: modelos_lstm
-          key: lstm-models-${{ github.run_number }}
-          restore-keys: |
-            lstm-models-
-
-      - name: Instalar dependências
-        run: pip install -r requirements.txt
-
-      - name: Definir modo (treino / relatório / uso)
-        id: modo
-        env:
-          SCHEDULE: ${{ github.event.schedule }}
-          INPUT_TREINO: ${{ inputs.treinar_lstm }}
-        run: |
-          if [ "$SCHEDULE" = "0 12 * * 6" ]; then
-            echo "treinar=false" >> "$GITHUB_OUTPUT"
-            echo "relatorio=true" >> "$GITHUB_OUTPUT"
           elif [ "$SCHEDULE" = "0 6 * * *" ] || [ "$SCHEDULE" = "0 13 * * 1-5" ] || [ "$INPUT_TREINO" = "true" ]; then
             echo "treinar=true" >> "$GITHUB_OUTPUT"
             echo "relatorio=false" >> "$GITHUB_OUTPUT"
@@ -78,12 +14,12 @@ jobs:
           MODO_RELATORIO: ${{ steps.modo.outputs.relatorio }}
         run: python robo.py
 
-      - name: Salvar modelos LSTM (cache)
-        if: steps.modo.outputs.treinar == 'true'
+      - name: Salvar modelos LSTM v12 (cache)
+        if: steps.modo.outputs.treinar == 'true' && success()
         uses: actions/cache/save@v4
         with:
-          path: modelos_lstm
-          key: lstm-models-${{ github.run_number }}
+          path: modelos_lstm_v12
+          key: lstm-v12-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Salvar dados atualizados
         if: success()
