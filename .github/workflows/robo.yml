@@ -1,4 +1,4 @@
-name: Robo Trader v12 (simulacao)
+name: Robo Trader v12 (monitoramento)
 
 on:
   workflow_dispatch:
@@ -12,8 +12,9 @@ on:
           - 'false'
           - 'true'
   schedule:
+    # Horarios UTC. Mantem a cobertura atual de monitoramento.
     - cron: '0 6 * * *'
-    - cron: '0 13 * * 1-5'
+    - cron: '0 7 * * 0'
     - cron: '0 12 * * 6'
     - cron: '0 3 * * *'
     - cron: '0 9,10 * * *'
@@ -32,6 +33,7 @@ concurrency:
 jobs:
   robo:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - name: Baixar codigo
         uses: actions/checkout@v4
@@ -60,14 +62,16 @@ jobs:
           SCHEDULE: ${{ github.event.schedule }}
           INPUT_TREINO: ${{ inputs.treinar_lstm }}
         run: |
-          if [ "$SCHEDULE" = "0 12 * * 6" ]; then
-            echo "treinar=false" >> "$GITHUB_OUTPUT"
-            echo "relatorio=true" >> "$GITHUB_OUTPUT"
-          elif [ "$SCHEDULE" = "0 6 * * *" ] || [ "$SCHEDULE" = "0 13 * * 1-5" ] || [ "$INPUT_TREINO" = "true" ]; then
+          # Treino automatico semanal: domingo 07:00 UTC (04:00 BRT).
+          # Treino manual continua disponivel com true.
+          if [ "$INPUT_TREINO" = "true" ] || [ "$SCHEDULE" = "0 7 * * 0" ]; then
             echo "treinar=true" >> "$GITHUB_OUTPUT"
-            echo "relatorio=false" >> "$GITHUB_OUTPUT"
           else
             echo "treinar=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [ "$SCHEDULE" = "0 12 * * 6" ]; then
+            echo "relatorio=true" >> "$GITHUB_OUTPUT"
+          else
             echo "relatorio=false" >> "$GITHUB_OUTPUT"
           fi
 
@@ -75,6 +79,7 @@ jobs:
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          APITUBE_KEY: ${{ secrets.APITUBE_KEY }}
           TREINAR_LSTM: ${{ steps.modo.outputs.treinar }}
           MODO_RELATORIO: ${{ steps.modo.outputs.relatorio }}
         run: python robo.py
@@ -86,7 +91,7 @@ jobs:
           path: modelos_lstm_v12
           key: lstm-v12-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
 
-      - name: Salvar dados simulados
+      - name: Salvar dados de acompanhamento
         if: success()
         shell: bash
         run: |
@@ -109,5 +114,5 @@ jobs:
             echo "Nenhuma alteracao para salvar."
             exit 0
           fi
-          git commit -m "Atualiza dados simulados v12 [skip ci]"
+          git commit -m "Atualiza dados de acompanhamento v12 [skip ci]"
           git push origin "HEAD:${GITHUB_REF_NAME}"
