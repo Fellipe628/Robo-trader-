@@ -1399,6 +1399,77 @@ def enviar_telegram_texto(mensagem):
         return False
 
 
+
+# ==========================================
+# V14 — RESUMO DE MERCADO NO TELEGRAM
+# Apenas observação: não abre ordens e não altera a estratégia.
+# Estado salvo no telegram_state_v12.json (já persistido no workflow).
+# ==========================================
+def enviar_resumo_mercado_v14(tabela, novas=None, fechamentos=None):
+    if tabela is None or tabela.empty:
+        print("📨 Resumo v14: sem ativos válidos")
+        return False
+    if not _tg_ok:
+        print("📨 Resumo v14: Telegram não configurado")
+        return False
+    if _tg_pausado():
+        print("📨 Resumo v14: notificações pausadas pelo usuário")
+        return False
+
+    agora = datetime.now(timezone.utc)
+    # Uma mensagem por janela de quatro horas, inclusive em execução manual.
+    janela = f"{agora:%Y-%m-%d}-{agora.hour // 4}"
+    estado = _carregar_tg_state()
+    if estado.get("ultimo_resumo_v14") == janela:
+        print("📨 Resumo v14: já enviado nesta janela de 4 horas")
+        return False
+
+    linhas = [
+        "📊 ROBÔ TRADER V14 — RESUMO DE MERCADO",
+        "🧪 SIMULAÇÃO / OBSERVAÇÃO — não é ordem de negociação",
+        f"🕒 {(_agora_brt()).strftime('%d/%m/%Y %H:%M')} BRT",
+        "",
+    ]
+    for _, item in tabela.iterrows():
+        ativo = str(item.get("Ativo", "?"))
+        preco = pd.to_numeric(item.get("Preço"), errors="coerce")
+        score = pd.to_numeric(item.get("Score"), errors="coerce")
+        if pd.isna(preco) or pd.isna(score):
+            linhas.append(f"• {ativo}: dados insuficientes — sem decisão")
+            continue
+        veredito = str(item.get("Veredito", "AGUARDAR"))
+        lstm = pd.to_numeric(item.get("LSTM_variacao"), errors="coerce")
+        lstm_txt = f"{lstm:+.1f}%" if pd.notna(lstm) else "indisponível"
+        minimo = SCORE_MIN_CRIPTO if _e_cripto(ativo) else SCORE_MIN_ACAO
+        linhas.append(f"• {ativo}: R$ {float(preco):,.2f} | score {int(score):+d} | {veredito}")
+        linhas.append(f"  LSTM: {lstm_txt} | mínimo para entrada: {minimo}")
+        if pd.notna(lstm) and ((lstm > 2 and score < 0) or (lstm < -2 and score > 0)):
+            linhas.append("  ⚠️ Divergência entre LSTM e indicadores")
+        if "VENDER" in veredito.upper() or "VENDA FORTE" in veredito.upper():
+            linhas.append("  ℹ️ Veredito de análise; não implica venda sem posição")
+        elif int(score) < minimo:
+            linhas.append("  ⏳ Score abaixo do mínimo; sem entrada por esse critério")
+
+    linhas.extend([
+        "",
+        f"🟢 Entradas simuladas neste ciclo: {', '.join(novas) if novas else 'nenhuma'}",
+        f"🔴 Saídas simuladas neste ciclo: {', '.join(fechamentos) if fechamentos else 'nenhuma'}",
+        "📌 Veredito técnico não equivale a operação executada.",
+    ])
+    mensagem = "\n".join(linhas)
+    # Telegram aceita até 4096 caracteres por mensagem; manter margem.
+    if len(mensagem) > 3800:
+        mensagem = mensagem[:3750] + "\n… (resumo abreviado)"
+    enviado = enviar_telegram_texto(mensagem)
+    if enviado:
+        estado["ultimo_resumo_v14"] = janela
+        _salvar_tg_state(estado)
+        print("📨 Resumo v14: enviado ao Telegram")
+    else:
+        print("⚠️ Resumo v14: falha no envio; tentará na próxima execução")
+    return enviado
+
+
 def alerta_compra(ativo, preco, alvo, stop, veredito, lstm_pct, lstm_tend, perfil, estado_cb="normal", valor_trade=None):
     lstm_str = f"{lstm_pct:+.2f}% {lstm_tend}" if lstm_pct is not None else "n/a"
     casas = _precisao(preco)
@@ -2186,7 +2257,7 @@ def _main_interno():
     processar_comandos_telegram()
 
     print("=" * 75)
-    print("🤖 ROBÔ TRADER — CICLO GITHUB ACTIONS (v12 - SIMULAÇÃO)")
+    print("🤖 ROBÔ TRADER — CICLO GITHUB ACTIONS (v14 - SIMULAÇÃO + ALERTAS)")
     print(f"📅 {datetime.now().strftime('%d/%m/%Y %H:%M')}")
     print(f"⚙️ Perfil: {PERFIL_ATIVO}")
     print(f"🧠 LSTM: {'TREINAR + USAR' if TREINAR_LSTM else 'USAR SALVO (ou pular)'}")
@@ -2210,6 +2281,12 @@ def _main_interno():
 
     if not tabela.empty:
         salvar_analise(tabela)
+
+    # Resumo informativo independente dos alertas de operações reais/simuladas.
+    try:
+        enviar_resumo_mercado_v14(tabela, novas=novas, fechamentos=fechamentos)
+    except Exception as exc:
+        print(f"⚠️ Resumo v14 indisponível: {type(exc).__name__}: {exc}")
 
     print("\n" + "=" * 75)
     print("📊 SINAIS POR ATIVO")
