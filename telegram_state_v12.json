@@ -1,8 +1,8 @@
 {
   "offset": 0,
   "pausado": false,
-  "ultimo_ciclo": "13/11/2026 11:14",
-  "ultimo_resumo_v14": "2026-11-13-2",
+  "ultimo_ciclo": "13/11/2026 14:04",
+  "ultimo_resumo_v14": "2026-11-13-3",
   "planos_v15": {
     "BTC": {
       "status": "OBSERVACAO",
@@ -15,6 +15,48 @@
       "dia": "2026-11-13",
       "gatilho": 11231.1307,
       "preco": 11010.2
+    },
+    "PETR4": {
+      "status": "OBSERVACAO",
+      "dia": "2026-11-13",
+      "gatilho": 46.0214,
+      "preco": 44.84
+    },
+    "ITUB4": {
+      "status": "OBSERVACAO",
+      "dia": "2026-11-13",
+      "gatilho": 42.302,
+      "preco": 41.9
+    },
+    "BBAS3": {
+      "status": "OBSERVACAO",
+      "dia": "2026-11-13",
+      "gatilho": 16.5579,
+      "preco": 15.12
+    },
+    "ITSA4": {
+      "status": "OBSERVACAO",
+      "dia": "2026-11-13",
+      "gatilho": 13.7663,
+      "preco": 13.64
+    },
+    "BBDC4": {
+      "status": "OBSERVACAO",
+      "dia": "2026-11-13",
+      "gatilho": 14.5343,
+      "preco": 14.31
+    },
+    "B3SA3": {
+      "status": "OBSERVACAO",
+      "dia": "2026-11-13",
+      "gatilho": 14.9405,
+      "preco": 14.58
+    },
+    "PRIO3": {
+      "status": "OBSERVACAO",
+      "dia": "2026-11-13",
+      "gatilho": 64.2754,
+      "preco": 63.51
     }
   }
 }
