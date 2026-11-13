@@ -2225,6 +2225,102 @@ def gerar_relatorio_semanal():
     print("=" * 75)
 
 
+
+# ==========================================
+# V15 — PLANEJAMENTO ANTECIPADO (SOMENTE COMPRA)
+# Informativo. Não altera decisões nem executa ordens.
+# ==========================================
+def monitorar_oportunidades_v15(tabela, dfs):
+    if tabela is None or tabela.empty or not _tg_ok or _tg_pausado():
+        print("🔭 V15: sem dados ou Telegram indisponível/pausado")
+        return
+    estado = _carregar_tg_state()
+    planos = estado.setdefault("planos_v15", {})
+    hoje = _agora_brt().strftime("%Y-%m-%d")
+    enviados = 0
+    for _, item in tabela.iterrows():
+        ativo = str(item.get("Ativo", ""))
+        df = dfs.get(ativo)
+        if df is None or len(df) < 60:
+            continue
+        preco = pd.to_numeric(item.get("Preço"), errors="coerce")
+        score = pd.to_numeric(item.get("Score"), errors="coerce")
+        rsi = pd.to_numeric(item.get("RSI"), errors="coerce")
+        if pd.isna(preco) or pd.isna(score) or pd.isna(rsi) or float(preco) <= 0:
+            continue
+        if not _e_cripto(ativo) and not _dentro_horario_mercado():
+            continue
+        d = calcular_indicadores(df)
+        ultimo = d.iloc[-1]
+        atr = pd.to_numeric(ultimo.get("ATR"), errors="coerce")
+        sma9 = pd.to_numeric(ultimo.get("SMA_9"), errors="coerce")
+        sma21 = pd.to_numeric(ultimo.get("SMA_21"), errors="coerce")
+        if any(pd.isna(v) for v in (atr, sma9, sma21)) or float(atr) <= 0:
+            continue
+        preco, atr, sma9, sma21 = map(float, (preco, atr, sma9, sma21))
+        minimo = SCORE_MIN_CRIPTO if _e_cripto(ativo) else SCORE_MIN_ACAO
+        # Setup de recuperação: sobrevenda, ou score quase suficiente.
+        observacao = (rsi <= 35) or (score >= minimo - 2)
+        # Confirmação exige score e direção positiva; não basta tocar um preço.
+        confirmado = score >= minimo and preco > sma9 and sma9 > sma21
+        anterior = planos.get(ativo, {})
+        status_ant = anterior.get("status")
+        if not observacao and not confirmado:
+            if status_ant in ("OBSERVACAO", "CONFIRMADO"):
+                msg = (f"⚪ V15 — {ativo}: PLANO ENCERRADO\n"
+                       f"Condições técnicas deixaram de atender aos critérios.\n"
+                       f"Preço observado: R$ {preco:,.2f}\n"
+                       "Nenhuma ordem executada.")
+                if enviar_telegram_texto(msg):
+                    planos[ativo] = {"status": "CANCELADO", "dia": hoje}
+                    enviados += 1
+            continue
+        status = "CONFIRMADO" if confirmado else "OBSERVACAO"
+        # Não reenviar o mesmo estado no mesmo dia. Transições são notificadas.
+        if status_ant == status and anterior.get("dia") == hoje:
+            continue
+        gatilho = max(preco + 0.25 * atr, sma9 + 0.10 * atr)
+        stop = gatilho - 2.0 * atr
+        if stop <= 0:
+            continue
+        alvo = gatilho + 4.0 * atr
+        lstm = pd.to_numeric(item.get("LSTM_variacao"), errors="coerce")
+        lstm_txt = f"{float(lstm):+.1f}%" if pd.notna(lstm) else "indisponível"
+        motivos = []
+        if rsi <= 35:
+            motivos.append(f"RSI {float(rsi):.1f} em sobrevenda/baixo")
+        if score >= minimo - 2:
+            motivos.append(f"score {int(score)} próximo do mínimo {minimo}")
+        if preco > sma9:
+            motivos.append("preço acima da média de 9 períodos")
+        if not motivos:
+            motivos.append("setup técnico em acompanhamento")
+        titulo = "🟢 CONDIÇÕES TÉCNICAS CONFIRMADAS" if confirmado else "🟠 OPORTUNIDADE EM OBSERVAÇÃO"
+        msg = (f"🔭 ROBÔ TRADER V15 — {ativo}\n{titulo}\n"
+               "🧪 Plano informativo, NÃO é ordem de compra\n"
+               f"🕒 {_agora_brt():%d/%m/%Y %H:%M} BRT\n"
+               f"Preço observado: R$ {preco:,.2f}\n"
+               f"Gatilho de referência: R$ {gatilho:,.2f}\n"
+               f"Stop hipotético: R$ {stop:,.2f}\n"
+               f"Alvo hipotético: R$ {alvo:,.2f} (2:1)\n"
+               f"Motivos: {'; '.join(motivos)}\n"
+               f"LSTM: {lstm_txt}; score: {int(score)} / mínimo {minimo}\n"
+               "Confirmação exige score mínimo, preço acima SMA9 e SMA9 acima SMA21.\n"
+               "⚠️ Gatilho é nível de referência, NÃO ordem limite nem previsão. "
+               "Preço, stop e alvo precisam ser recalculados na próxima análise. "
+               "Não operar automaticamente.")
+        if enviar_telegram_texto(msg):
+            planos[ativo] = {"status": status, "dia": hoje,
+                            "gatilho": round(gatilho, 4), "preco": round(preco, 4)}
+            enviados += 1
+    # Retém estado pequeno, evitando crescimento ilimitado.
+    if len(planos) > 100:
+        for k in list(planos)[:-100]:
+            del planos[k]
+    if enviados:
+        _salvar_tg_state(estado)
+    print(f"🔭 V15: {enviados} alertas de planejamento enviados")
+
 # ==========================================
 # EXECUÇÃO PRINCIPAL
 # ==========================================
@@ -2257,7 +2353,7 @@ def _main_interno():
     processar_comandos_telegram()
 
     print("=" * 75)
-    print("🤖 ROBÔ TRADER — CICLO GITHUB ACTIONS (v14 - SIMULAÇÃO + ALERTAS)")
+    print("🤖 ROBÔ TRADER — CICLO GITHUB ACTIONS (v15 - SIMULAÇÃO + PLANOS)")
     print(f"📅 {datetime.now().strftime('%d/%m/%Y %H:%M')}")
     print(f"⚙️ Perfil: {PERFIL_ATIVO}")
     print(f"🧠 LSTM: {'TREINAR + USAR' if TREINAR_LSTM else 'USAR SALVO (ou pular)'}")
@@ -2281,6 +2377,12 @@ def _main_interno():
 
     if not tabela.empty:
         salvar_analise(tabela)
+
+    # Planejamento v15: alertas antecipados sem abrir ou alterar posições.
+    try:
+        monitorar_oportunidades_v15(tabela, dfs)
+    except Exception as exc:
+        print(f"⚠️ Planejamento v15 indisponível: {type(exc).__name__}: {exc}")
 
     # Resumo informativo independente dos alertas de operações reais/simuladas.
     try:
