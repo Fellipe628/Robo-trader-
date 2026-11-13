@@ -1,6 +1,20 @@
 {
   "offset": 0,
   "pausado": false,
-  "ultimo_ciclo": "13/11/2026 11:08",
-  "ultimo_resumo_v14": "2026-11-13-2"
+  "ultimo_ciclo": "13/11/2026 11:14",
+  "ultimo_resumo_v14": "2026-11-13-2",
+  "planos_v15": {
+    "BTC": {
+      "status": "OBSERVACAO",
+      "dia": "2026-11-13",
+      "gatilho": 400025.3498,
+      "preco": 390792.09
+    },
+    "ETH": {
+      "status": "OBSERVACAO",
+      "dia": "2026-11-13",
+      "gatilho": 11231.1307,
+      "preco": 11010.2
+    }
+  }
 }
