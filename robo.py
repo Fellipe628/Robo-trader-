@@ -412,6 +412,69 @@ def resumo_portfolio():
     print("="*50)
 
 
+# ==========================================
+# V13 — AUDITORIA OBSERVACIONAL DE SINAIS
+# Não muda entradas, saídas ou tamanho das posições.
+# Avalia cada sinal somente quando houver observação posterior.
+# ==========================================
+def _avaliar_historico_sinais(df):
+    if df.empty or not {"DataHora", "Ativo", "Preco", "Veredito"}.issubset(df.columns):
+        return df
+    df = df.copy()
+    df["DataHora"] = df["DataHora"].astype(str)
+    if "DataHora_UTC" not in df.columns:
+        # Dados legados foram gerados no relógio UTC do runner GitHub.
+        df["DataHora_UTC"] = df["DataHora"]
+    for horas in (4, 24):
+        for col in (f"Preco_apos_{horas}h", f"Retorno_{horas}h_pct", f"Acerto_direcional_{horas}h"):
+            if col not in df.columns:
+                df[col] = float('nan')
+    datas = pd.to_datetime(df["DataHora_UTC"], errors="coerce", utc=True)
+    precos = pd.to_numeric(df["Preco"], errors="coerce")
+    for ativo, indices in df.groupby("Ativo", sort=False).groups.items():
+        idxs = sorted(indices, key=lambda i: (datas.loc[i] if pd.notna(datas.loc[i]) else pd.Timestamp.max.tz_localize('UTC')))
+        for pos, i in enumerate(idxs):
+            t = datas.loc[i]
+            p = precos.loc[i]
+            if pd.isna(t) or pd.isna(p) or p <= 0:
+                continue
+            for horas in (4, 24):
+                col = f"Retorno_{horas}h_pct"
+                if pd.notna(df.at[i, col]):
+                    continue
+                limite = t + pd.Timedelta(hours=horas)
+                # Primeiro preço observado APÓS o horizonte. Não é preço exato
+                # de fechamento da vela e pode estar bem depois do limite.
+                futuro = next((j for j in idxs[pos + 1:]
+                               if pd.notna(datas.loc[j]) and datas.loc[j] >= limite
+                               and pd.notna(precos.loc[j]) and precos.loc[j] > 0), None)
+                if futuro is None:
+                    continue
+                retorno = (float(precos.loc[futuro]) / float(p) - 1.0) * 100.0
+                df.at[i, f"Preco_apos_{horas}h"] = float(precos.loc[futuro])
+                df.at[i, col] = round(retorno, 4)
+                veredito = str(df.at[i, "Veredito"]).upper()
+                if "COMPRAR" in veredito or "COMPRA FORTE" in veredito:
+                    df.at[i, f"Acerto_direcional_{horas}h"] = int(retorno > 0)
+                elif "VENDER" in veredito or "VENDA FORTE" in veredito:
+                    df.at[i, f"Acerto_direcional_{horas}h"] = int(retorno < 0)
+    return df
+
+
+def _resumo_auditoria_sinais(df):
+    print("\n📐 AUDITORIA V13 — SINAIS OBSERVADOS (não é backtest)")
+    for horas in (4, 24):
+        col = f"Acerto_direcional_{horas}h"
+        if col not in df.columns:
+            continue
+        validos = pd.to_numeric(df[col], errors="coerce").dropna()
+        if validos.empty:
+            print(f"   {horas}h: ainda sem amostra avaliada")
+        else:
+            print(f"   {horas}h: {len(validos)} sinais avaliados | acerto direcional {validos.mean()*100:.1f}%")
+    print("   ⚠️ Retornos sem taxas/slippage; observações podem ocorrer após o horizonte.")
+
+
 def salvar_analise(tabela):
     linhas = []
     agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -440,7 +503,9 @@ def salvar_analise(tabela):
             df_final = df_novo
     else:
         df_final = df_novo
+    df_final = _avaliar_historico_sinais(df_final.reset_index(drop=True))
     df_final.to_csv(ARQUIVO_LOG, index=False)
+    _resumo_auditoria_sinais(df_final)
 
 # ==========================================
 # COOLDOWN
