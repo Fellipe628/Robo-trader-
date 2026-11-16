@@ -1,14 +1,12 @@
 {
   "offset": 0,
   "pausado": false,
-  "ultimo_ciclo": "16/11/2026 10:22",
-  "ultimo_resumo_v14": "2026-11-16-2",
+  "ultimo_ciclo": "16/11/2026 15:03",
+  "ultimo_resumo_v14": "2026-11-16-3",
   "planos_v15": {
     "BTC": {
-      "status": "OBSERVACAO",
-      "dia": "2026-11-16",
-      "gatilho": 367847.7537,
-      "preco": 364953.82
+      "status": "CANCELADO",
+      "dia": "2026-11-16"
     },
     "ETH": {
       "status": "CANCELADO",
@@ -16,45 +14,39 @@
     },
     "PETR4": {
       "status": "OBSERVACAO",
-      "dia": "2026-11-13",
-      "gatilho": 46.0214,
-      "preco": 44.84
+      "dia": "2026-11-16",
+      "gatilho": 45.3503,
+      "preco": 44.59
     },
     "ITUB4": {
-      "status": "OBSERVACAO",
-      "dia": "2026-11-13",
-      "gatilho": 42.302,
-      "preco": 41.9
+      "status": "CANCELADO",
+      "dia": "2026-11-16"
     },
     "BBAS3": {
       "status": "OBSERVACAO",
-      "dia": "2026-11-13",
-      "gatilho": 16.5579,
-      "preco": 15.12
+      "dia": "2026-11-16",
+      "gatilho": 16.3317,
+      "preco": 14.66
     },
     "ITSA4": {
-      "status": "OBSERVACAO",
-      "dia": "2026-11-13",
-      "gatilho": 13.7663,
-      "preco": 13.64
+      "status": "CANCELADO",
+      "dia": "2026-11-16"
     },
     "BBDC4": {
       "status": "OBSERVACAO",
-      "dia": "2026-11-13",
-      "gatilho": 14.5343,
-      "preco": 14.31
+      "dia": "2026-11-16",
+      "gatilho": 14.4973,
+      "preco": 14.37
     },
     "B3SA3": {
-      "status": "OBSERVACAO",
-      "dia": "2026-11-13",
-      "gatilho": 14.9405,
-      "preco": 14.58
+      "status": "CANCELADO",
+      "dia": "2026-11-16"
     },
     "PRIO3": {
       "status": "OBSERVACAO",
-      "dia": "2026-11-13",
-      "gatilho": 64.2754,
-      "preco": 63.51
+      "dia": "2026-11-16",
+      "gatilho": 63.1368,
+      "preco": 62.48
     }
   }
 }
