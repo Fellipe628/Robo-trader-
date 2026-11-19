@@ -1,14 +1,12 @@
 {
   "offset": 0,
   "pausado": false,
-  "ultimo_ciclo": "19/11/2026 01:44",
-  "ultimo_resumo_v14": "2026-11-19-0",
+  "ultimo_ciclo": "19/11/2026 05:29",
+  "ultimo_resumo_v14": "2026-11-19-1",
   "planos_v15": {
     "BTC": {
-      "status": "OBSERVACAO",
-      "dia": "2026-11-18",
-      "gatilho": 372669.1566,
-      "preco": 365514.85
+      "status": "CANCELADO",
+      "dia": "2026-11-19"
     },
     "ETH": {
       "status": "CANCELADO",
