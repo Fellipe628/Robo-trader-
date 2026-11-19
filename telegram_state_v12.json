@@ -1,8 +1,8 @@
 {
   "offset": 0,
   "pausado": false,
-  "ultimo_ciclo": "19/11/2026 10:55",
-  "ultimo_resumo_v14": "2026-11-19-2",
+  "ultimo_ciclo": "19/11/2026 15:23",
+  "ultimo_resumo_v14": "2026-11-19-3",
   "planos_v15": {
     "BTC": {
       "status": "CANCELADO",
@@ -14,9 +14,9 @@
     },
     "PETR4": {
       "status": "OBSERVACAO",
-      "dia": "2026-11-18",
-      "gatilho": 44.6629,
-      "preco": 43.46
+      "dia": "2026-11-19",
+      "gatilho": 44.3995,
+      "preco": 43.22
     },
     "ITUB4": {
       "status": "CANCELADO",
@@ -24,9 +24,9 @@
     },
     "BBAS3": {
       "status": "OBSERVACAO",
-      "dia": "2026-11-18",
-      "gatilho": 15.9118,
-      "preco": 14.35
+      "dia": "2026-11-19",
+      "gatilho": 15.5718,
+      "preco": 14.29
     },
     "ITSA4": {
       "status": "CANCELADO",
@@ -42,9 +42,9 @@
     },
     "PRIO3": {
       "status": "OBSERVACAO",
-      "dia": "2026-11-18",
-      "gatilho": 63.4577,
-      "preco": 62.81
+      "dia": "2026-11-19",
+      "gatilho": 62.1263,
+      "preco": 60.83
     }
   }
 }
