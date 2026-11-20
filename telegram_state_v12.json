@@ -1,8 +1,8 @@
 {
   "offset": 0,
   "pausado": false,
-  "ultimo_ciclo": "20/11/2026 05:16",
-  "ultimo_resumo_v14": "2026-11-20-1",
+  "ultimo_ciclo": "20/11/2026 10:44",
+  "ultimo_resumo_v14": "2026-11-20-2",
   "planos_v15": {
     "BTC": {
       "status": "OBSERVACAO",
@@ -11,10 +11,8 @@
       "preco": 364755.53
     },
     "ETH": {
-      "status": "OBSERVACAO",
-      "dia": "2026-11-20",
-      "gatilho": 10499.0446,
-      "preco": 10220.21
+      "status": "CANCELADO",
+      "dia": "2026-11-20"
     },
     "PETR4": {
       "status": "OBSERVACAO",
