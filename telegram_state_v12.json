@@ -1,8 +1,8 @@
 {
   "offset": 0,
   "pausado": false,
-  "ultimo_ciclo": "26/11/2026 18:55",
-  "ultimo_resumo_v14": "2026-11-26-4",
+  "ultimo_ciclo": "26/11/2026 20:00",
+  "ultimo_resumo_v14": "2026-11-26-5",
   "planos_v15": {
     "BTC": {
       "status": "CANCELADO",
@@ -47,8 +47,10 @@
       "dia": "2026-11-26"
     },
     "WEGE3": {
-      "status": "CANCELADO",
-      "dia": "2026-11-26"
+      "status": "OBSERVACAO",
+      "dia": "2026-11-26",
+      "gatilho": 51.1455,
+      "preco": 50.78
     },
     "ABEV3": {
       "status": "OBSERVACAO",
