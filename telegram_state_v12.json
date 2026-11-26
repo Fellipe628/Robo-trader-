@@ -1,7 +1,7 @@
 {
   "offset": 0,
   "pausado": false,
-  "ultimo_ciclo": "26/11/2026 16:31",
+  "ultimo_ciclo": "26/11/2026 18:55",
   "ultimo_resumo_v14": "2026-11-26-4",
   "planos_v15": {
     "BTC": {
@@ -13,8 +13,10 @@
       "dia": "2026-11-25"
     },
     "PETR4": {
-      "status": "CANCELADO",
-      "dia": "2026-11-26"
+      "status": "OBSERVACAO",
+      "dia": "2026-11-26",
+      "gatilho": 42.9041,
+      "preco": 42.54
     },
     "ITUB4": {
       "status": "CANCELADO",
@@ -45,10 +47,8 @@
       "dia": "2026-11-26"
     },
     "WEGE3": {
-      "status": "OBSERVACAO",
-      "dia": "2026-11-26",
-      "gatilho": 51.1546,
-      "preco": 50.79
+      "status": "CANCELADO",
+      "dia": "2026-11-26"
     },
     "ABEV3": {
       "status": "OBSERVACAO",
