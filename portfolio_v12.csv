@@ -1,0 +1,2 @@
+ID,Ativo,Tipo,Data_Compra,Preco_Compra,Qtd,Qtd_Restante,Data_Venda,Preco_Venda,Lucro_R$,Lucro_%,Status,Alvo,Stop_Inicial,Stop_Atual,Perfil,Motivo
+1,ABEV3,Ação,2026-11-27 18:48,16.26,3.0,3.0,,,,,ABERTO,17.18,15.8,15.8,equilibrado,
